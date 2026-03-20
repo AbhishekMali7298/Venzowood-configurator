@@ -1,12 +1,18 @@
 import type { Metadata } from 'next'
+import dynamic from 'next/dynamic'
 import { notFound } from 'next/navigation'
-import { Suspense } from 'react'
 
 import { RoomSkeleton } from '@/components/room/RoomSkeleton'
 import { getDecors } from '@/services/decor-api'
 import { getRoom } from '@/services/room-api'
 
-import { RoomStudioClient } from './RoomStudioClient'
+const RoomStudioClient = dynamic(
+  () => import('./RoomStudioClient').then((module) => module.RoomStudioClient),
+  {
+    loading: () => <RoomSkeleton />,
+    ssr: false,
+  },
+)
 
 interface RoomPageProps {
   params: {
@@ -56,12 +62,10 @@ export default async function RoomPage({ params, searchParams }: RoomPageProps) 
     : (searchParams?.project ?? null)
 
   return (
-    <Suspense fallback={<RoomSkeleton />}>
-      <RoomStudioClient
-        room={roomData.room}
-        decors={roomData.decors.decors}
-        projectFromQuery={projectFromQuery}
-      />
-    </Suspense>
+    <RoomStudioClient
+      room={roomData.room}
+      decors={roomData.decors.decors}
+      projectFromQuery={projectFromQuery}
+    />
   )
 }

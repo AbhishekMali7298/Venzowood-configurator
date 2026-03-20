@@ -6,10 +6,11 @@ interface RoomCanvasProps {
   width: number
   height: number
   onReady?: (canvas: HTMLCanvasElement) => void
+  onResize?: (size: { width: number; height: number }) => void
   className?: string
 }
 
-export function RoomCanvas({ width, height, onReady, className }: RoomCanvasProps) {
+export function RoomCanvas({ width, height, onReady, onResize, className }: RoomCanvasProps) {
   const ref = useRef<HTMLCanvasElement>(null)
   const reportedCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
@@ -22,6 +23,28 @@ export function RoomCanvas({ width, height, onReady, className }: RoomCanvasProp
     reportedCanvasRef.current = canvas
     onReady(canvas)
   }, [onReady])
+
+  useEffect(() => {
+    const canvas = ref.current
+    if (!canvas || !onResize || typeof ResizeObserver === 'undefined') {
+      return
+    }
+
+    const reportSize = () => {
+      onResize({
+        width: canvas.clientWidth,
+        height: canvas.clientHeight,
+      })
+    }
+
+    reportSize()
+    const observer = new ResizeObserver(reportSize)
+    observer.observe(canvas)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [onResize])
 
   return (
     <canvas

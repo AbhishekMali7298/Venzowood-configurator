@@ -78,6 +78,7 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
 
   const activeSection = useStore((state) => state.activeSection)
   const drawerOpen = useStore((state) => state.drawerOpen)
+  const compareModeInStore = useStore((state) => state.compareMode)
   const projectId = useStore((state) => state.projectId)
   const lastSaved = useStore((state) => state.lastSaved)
   const sectionDecorEntries = useStore((state) => Array.from(state.sectionDecors.entries()))
@@ -88,6 +89,8 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
   const setActiveSection = useStore((state) => state.setActiveSection)
   const setDrawerOpen = useStore((state) => state.setDrawerOpen)
   const selectDecor = useStore((state) => state.selectDecor)
+  const resetSection = useStore((state) => state.resetSection)
+  const resetAll = useStore((state) => state.resetAll)
   const setCompareMode = useStore((state) => state.setCompareMode)
   const setProjectId = useStore((state) => state.setProjectId)
   const markSaved = useStore((state) => state.markSaved)
@@ -157,8 +160,6 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
   }, [enrichedRoom, initPrimaryRoom, isPrimaryReady, renderPrimary, sectionDecors])
 
   useEffect(() => {
-    setCompareMode(compareMode.isActive)
-
     if (!compareMode.isActive) {
       compareInitializedRef.current = false
       return
@@ -182,8 +183,13 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
     initCompareRoom,
     isCompareReady,
     renderCompare,
-    setCompareMode,
   ])
+
+  useEffect(() => {
+    if (compareModeInStore !== compareMode.isActive) {
+      setCompareMode(compareMode.isActive)
+    }
+  }, [compareMode.isActive, compareModeInStore, setCompareMode])
 
   useEffect(() => {
     if (!projectFromQuery) {
@@ -228,6 +234,26 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
     compareMode.refreshBaseline(sectionDecors)
   }, [compareMode, sectionDecors])
 
+  const handleResetSection = useCallback(() => {
+    if (!activeSection || !sectionDecors.has(activeSection)) {
+      return
+    }
+
+    const next = new Map(sectionDecors)
+    next.delete(activeSection)
+    resetSection(activeSection)
+    void renderPrimary(enrichedRoom, next, 'low')
+  }, [activeSection, enrichedRoom, renderPrimary, resetSection, sectionDecors])
+
+  const handleResetAll = useCallback(() => {
+    if (sectionDecors.size === 0) {
+      return
+    }
+
+    resetAll()
+    void renderPrimary(enrichedRoom, new Map(), 'low')
+  }, [enrichedRoom, renderPrimary, resetAll, sectionDecors.size])
+
   const handleSaveProject = useCallback(async () => {
     try {
       setSaveState('saving')
@@ -249,6 +275,8 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
   const activeDecorCode = activeSection ? sectionDecors.get(activeSection)?.code : undefined
   const compareClip = `${Math.round(compareMode.sliderPosition * 100)}%`
   const showCanvasLoading = !isPrimaryReady || (isPrimaryRendering && !initializedRef.current)
+  const canResetSection = Boolean(activeSection && sectionDecors.has(activeSection))
+  const hasSelections = sectionDecors.size > 0
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-8">
@@ -259,9 +287,13 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
         </div>
         <StudioToolbar
           compareActive={compareMode.isActive}
+          canResetSection={canResetSection}
+          hasSelections={hasSelections}
           saveState={saveState}
           onToggleCompare={handleToggleCompare}
           onRefreshBaseline={handleRefreshBaseline}
+          onResetSection={handleResetSection}
+          onResetAll={handleResetAll}
           onSaveProject={handleSaveProject}
           onExportPng={handleExportPng}
         />
