@@ -175,11 +175,23 @@ export function RoomBrowserClient({ rooms, initialDecors }: RoomBrowserClientPro
                     type="text"
                     className="h-10 flex-1 border border-stone-300 bg-white px-3 text-sm text-stone-800 outline-none ring-0 placeholder:text-stone-400"
                     placeholder="Project ID"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const val = e.currentTarget.value.trim()
+                        if (val) window.location.href = `/projects/${val}`
+                      }
+                    }}
+                    id="project-id-input"
                   />
                   <button
                     type="button"
                     className="h-10 w-10 bg-rose-600 text-xl text-white transition hover:bg-rose-700"
                     aria-label="Load project"
+                    onClick={() => {
+                      const input = document.getElementById('project-id-input') as HTMLInputElement
+                      const val = input.value.trim()
+                      if (val) window.location.href = `/projects/${val}`
+                    }}
                   >
                     ›
                   </button>

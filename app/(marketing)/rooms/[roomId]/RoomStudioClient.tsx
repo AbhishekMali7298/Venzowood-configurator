@@ -281,13 +281,10 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
   const hasSelections = sectionDecors.size > 0
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-8">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-stone-900">{enrichedRoom.name}</h1>
-          <SectionLabel text="Click a dot to change this surface" />
-        </div>
+    <main className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
+      <div className="mb-4">
         <StudioToolbar
+          roomName={enrichedRoom.name}
           compareActive={compareMode.isActive}
           canResetSection={canResetSection}
           hasSelections={hasSelections}
@@ -299,6 +296,9 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
           onSaveProject={handleSaveProject}
           onExportPng={handleExportPng}
         />
+        <div className="mt-4">
+          <SectionLabel text="Click a dot to change this surface" />
+        </div>
       </div>
 
       <StudioStatus

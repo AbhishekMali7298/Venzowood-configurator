@@ -70,3 +70,19 @@ export async function createRoom(payload: CreateRoomPayload): Promise<{ id: stri
     cache: 'no-store',
   })
 }
+
+export async function updateRoom(id: string, payload: CreateRoomPayload): Promise<{ id: string }> {
+  return apiRequest<{ id: string }>(`/rooms/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+    cache: 'no-store',
+  })
+}
+
+export async function deleteRoom(id: string): Promise<void> {
+  await apiRequest<void>(`/rooms/${id}`, {
+    method: 'DELETE',
+    cache: 'no-store',
+  })
+}
+
