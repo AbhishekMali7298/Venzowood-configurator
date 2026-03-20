@@ -81,7 +81,7 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
   const compareModeInStore = useStore((state) => state.compareMode)
   const projectId = useStore((state) => state.projectId)
   const lastSaved = useStore((state) => state.lastSaved)
-  const sectionDecorEntries = useStore((state) => Array.from(state.sectionDecors.entries()))
+  const sectionDecors = useStore((state) => state.sectionDecors)
 
   const setRoom = useStore((state) => state.setRoom)
   const setCatalogue = useStore((state) => state.setCatalogue)
@@ -94,8 +94,6 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
   const setCompareMode = useStore((state) => state.setCompareMode)
   const setProjectId = useStore((state) => state.setProjectId)
   const markSaved = useStore((state) => state.markSaved)
-
-  const sectionDecors = useMemo(() => new Map(sectionDecorEntries), [sectionDecorEntries])
 
   const {
     attachCanvas: attachPrimaryCanvas,

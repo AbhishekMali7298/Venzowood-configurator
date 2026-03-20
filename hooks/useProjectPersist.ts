@@ -1,5 +1,7 @@
 'use client'
 
+import { useCallback } from 'react'
+
 import type { Decor } from '@/features/decor/types'
 import { serializeProject } from '@/features/project/project-service'
 import { updateShareUrl } from '@/features/project/share-encoder'
@@ -26,7 +28,7 @@ export function useProjectPersist({
   markSaved,
   country = 'IN',
 }: UseProjectPersistOptions) {
-  const saveCurrentProject = async () => {
+  const saveCurrentProject = useCallback(async () => {
     const payload = serializeProject(
       {
         activeRoom: room,
@@ -41,29 +43,32 @@ export function useProjectPersist({
     updateShareUrl(room.id, result.projectId)
 
     return result
-  }
+  }, [country, markSaved, room, sectionDecors, setProjectId])
 
-  const loadProjectById = async (projectId: string): Promise<Project> => {
-    const project = await loadProject(projectId)
+  const loadProjectById = useCallback(
+    async (projectId: string): Promise<Project> => {
+      const project = await loadProject(projectId)
 
-    if (project.roomId !== room.id) {
-      throw new Error('Project does not match active room')
-    }
-
-    const mapped = new Map<string, Decor>()
-    Object.entries(project.sectionDecors).forEach(([sectionId, decorCode]) => {
-      const decor = decorByCode.get(decorCode)
-      if (decor) {
-        mapped.set(sectionId, decor)
+      if (project.roomId !== room.id) {
+        throw new Error('Project does not match active room')
       }
-    })
 
-    setSectionDecors(mapped)
-    setProjectId(project.projectId)
-    markSaved()
+      const mapped = new Map<string, Decor>()
+      Object.entries(project.sectionDecors).forEach(([sectionId, decorCode]) => {
+        const decor = decorByCode.get(decorCode)
+        if (decor) {
+          mapped.set(sectionId, decor)
+        }
+      })
 
-    return project
-  }
+      setSectionDecors(mapped)
+      setProjectId(project.projectId)
+      markSaved()
+
+      return project
+    },
+    [decorByCode, markSaved, room.id, setProjectId, setSectionDecors],
+  )
 
   return {
     saveCurrentProject,
