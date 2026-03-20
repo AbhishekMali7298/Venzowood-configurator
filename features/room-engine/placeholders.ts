@@ -54,7 +54,10 @@ function mapDecorToPlaceholder(decor: Decor, index: number): Decor {
   }
 }
 
-export function applyPlaceholderAssets(room: Room, decors: Decor[]): { room: Room; decors: Decor[] } {
+export function applyPlaceholderAssets(
+  room: Room,
+  decors: Decor[],
+): { room: Room; decors: Decor[] } {
   const width = room.width || 1920
   const height = room.height || 1080
 

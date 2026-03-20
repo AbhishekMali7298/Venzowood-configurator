@@ -15,14 +15,16 @@ export async function apiRequest<T>(
   init?: RequestInit,
   options?: { baseUrl?: string },
 ): Promise<T> {
+  const method = (init?.method ?? 'GET').toUpperCase()
   const baseUrl = options?.baseUrl ?? env.NEXT_PUBLIC_API_BASE
+
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
     headers: {
       'content-type': 'application/json',
       ...(init?.headers ?? {}),
     },
-    cache: 'no-store',
+    cache: init?.cache ?? (method === 'GET' ? 'force-cache' : 'no-store'),
   })
 
   if (!response.ok) {

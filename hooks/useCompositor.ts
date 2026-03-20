@@ -73,33 +73,30 @@ export function useCompositor(width: number, height: number) {
     [],
   )
 
-  const initRoom = useCallback(
-    async (room: Room, sectionDecors: Map<string, Decor>) => {
-      const compositor = compositorRef.current
-      if (!compositor) {
-        return
-      }
+  const initRoom = useCallback(async (room: Room, sectionDecors: Map<string, Decor>) => {
+    const compositor = compositorRef.current
+    if (!compositor) {
+      return
+    }
 
-      setIsRendering(true)
-      try {
-        await compositor.renderBase(room.layers.base)
-      } finally {
-        setIsRendering(false)
-      }
+    setIsRendering(true)
+    try {
+      await compositor.renderBase(room.layers.base)
+    } finally {
+      setIsRendering(false)
+    }
 
-      const preloadUrls = [
-        room.layers.shadow,
-        ...(room.layers.reflection ? [room.layers.reflection] : []),
-        ...room.sections.map((section) => section.uvMask),
-        ...Array.from(sectionDecors.values()).map((decor) => decor.tile512),
-      ]
+    const preloadUrls = [
+      room.layers.shadow,
+      ...(room.layers.reflection ? [room.layers.reflection] : []),
+      ...room.sections.map((section) => section.uvMask),
+      ...Array.from(sectionDecors.values()).map((decor) => decor.tile512),
+    ]
 
-      void Promise.all(preloadUrls.map((url) => preloadImage(url))).then(async () => {
-        await compositor.render({ room, sectionDecors, quality: 'low' })
-      })
-    },
-    [],
-  )
+    void Promise.all(preloadUrls.map((url) => preloadImage(url))).then(async () => {
+      await compositor.render({ room, sectionDecors, quality: 'low' })
+    })
+  }, [])
 
   const renderProgressive = useCallback(
     async (room: Room, sectionDecors: Map<string, Decor>) => {

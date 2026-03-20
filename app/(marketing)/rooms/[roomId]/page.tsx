@@ -1,4 +1,10 @@
 import type { Metadata } from 'next'
+import { notFound } from 'next/navigation'
+
+import { getDecors } from '@/services/decor-api'
+import { getRoom } from '@/services/room-api'
+
+import { RoomStudioClient } from './RoomStudioClient'
 
 interface RoomPageProps {
   params: {
@@ -7,19 +13,38 @@ interface RoomPageProps {
 }
 
 export async function generateMetadata({ params }: RoomPageProps): Promise<Metadata> {
-  return {
-    title: `DecorViz | ${params.roomId}`,
-    description: 'Room customization shell',
+  try {
+    const room = await getRoom(params.roomId)
+    return {
+      title: `DecorViz | ${room.name}`,
+      description: `Customize ${room.name} with canvas-based compositing.`,
+    }
+  } catch {
+    return {
+      title: 'DecorViz | Room',
+    }
   }
 }
 
-export default function RoomPage({ params }: RoomPageProps) {
-  return (
-    <main className="mx-auto max-w-6xl px-6 py-12">
-      <h1 className="text-2xl font-semibold text-stone-900">Room: {params.roomId}</h1>
-      <p className="mt-3 text-stone-700">
-        Compositor shell scaffolded and ready for feature implementation.
-      </p>
-    </main>
-  )
+export default async function RoomPage({ params }: RoomPageProps) {
+  let roomData: {
+    room: Awaited<ReturnType<typeof getRoom>>
+    decors: Awaited<ReturnType<typeof getDecors>>
+  } | null = null
+
+  try {
+    const [room, decors] = await Promise.all([
+      getRoom(params.roomId),
+      getDecors({ country: 'IN', page: 1, limit: 500 }),
+    ])
+    roomData = { room, decors }
+  } catch {
+    roomData = null
+  }
+
+  if (!roomData) {
+    notFound()
+  }
+
+  return <RoomStudioClient room={roomData.room} decors={roomData.decors.decors} />
 }
