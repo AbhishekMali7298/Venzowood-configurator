@@ -18,15 +18,19 @@ function canUseWorkerCompositor(): boolean {
 }
 
 export function useCompositor(width: number, height: number) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const compositorRef = useRef<RoomCompositor | null>(null)
   const workerRef = useRef<CompositorWorkerClient | null>(null)
 
+  const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null)
   const [isReady, setIsReady] = useState(false)
   const [isRendering, setIsRendering] = useState(false)
 
+  const attachCanvas = useCallback((node: HTMLCanvasElement) => {
+    setCanvas(node)
+  }, [])
+
   useEffect(() => {
-    if (!canvasRef.current) {
+    if (!canvas) {
       return
     }
 
@@ -35,7 +39,7 @@ export function useCompositor(width: number, height: number) {
     }
 
     compositorRef.current = new RoomCompositor({
-      canvas: canvasRef.current,
+      canvas,
       width,
       height,
       workerClient: workerRef.current,
@@ -50,7 +54,7 @@ export function useCompositor(width: number, height: number) {
       workerRef.current = null
       setIsReady(false)
     }
-  }, [height, width])
+  }, [canvas, height, width])
 
   const render = useCallback(
     async (room: Room, sectionDecors: Map<string, Decor>, quality: 'low' | 'high' = 'low') => {
@@ -69,30 +73,33 @@ export function useCompositor(width: number, height: number) {
     [],
   )
 
-  const initRoom = useCallback(async (room: Room, sectionDecors: Map<string, Decor>) => {
-    const compositor = compositorRef.current
-    if (!compositor) {
-      return
-    }
+  const initRoom = useCallback(
+    async (room: Room, sectionDecors: Map<string, Decor>) => {
+      const compositor = compositorRef.current
+      if (!compositor) {
+        return
+      }
 
-    setIsRendering(true)
-    try {
-      await compositor.renderBase(room.layers.base)
-    } finally {
-      setIsRendering(false)
-    }
+      setIsRendering(true)
+      try {
+        await compositor.renderBase(room.layers.base)
+      } finally {
+        setIsRendering(false)
+      }
 
-    const preloadUrls = [
-      room.layers.shadow,
-      ...(room.layers.reflection ? [room.layers.reflection] : []),
-      ...room.sections.map((section) => section.uvMask),
-      ...Array.from(sectionDecors.values()).map((decor) => decor.tile512),
-    ]
+      const preloadUrls = [
+        room.layers.shadow,
+        ...(room.layers.reflection ? [room.layers.reflection] : []),
+        ...room.sections.map((section) => section.uvMask),
+        ...Array.from(sectionDecors.values()).map((decor) => decor.tile512),
+      ]
 
-    void Promise.all(preloadUrls.map((url) => preloadImage(url))).then(async () => {
-      await compositor.render({ room, sectionDecors, quality: 'low' })
-    })
-  }, [])
+      void Promise.all(preloadUrls.map((url) => preloadImage(url))).then(async () => {
+        await compositor.render({ room, sectionDecors, quality: 'low' })
+      })
+    },
+    [],
+  )
 
   const renderProgressive = useCallback(
     async (room: Room, sectionDecors: Map<string, Decor>) => {
@@ -110,7 +117,7 @@ export function useCompositor(width: number, height: number) {
   }, [])
 
   return {
-    canvasRef,
+    attachCanvas,
     isReady,
     isRendering,
     initRoom,

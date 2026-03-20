@@ -1,9 +1,9 @@
-import type { Room } from '@/features/room-engine/types'
+import type { Room, RoomListItem } from '@/features/room-engine/types'
 
 import { apiRequest } from './api-client'
 
 export interface RoomsResponse {
-  rooms: Room[]
+  rooms: RoomListItem[]
   total: number
 }
 

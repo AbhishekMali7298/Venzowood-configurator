@@ -1,12 +1,21 @@
 import type { Decor } from '@/features/decor/types'
 
-export interface Room {
+export interface RoomListItem {
   id: string
   name: string
   category: 'private' | 'public'
+  thumb: string
+  sectionCount: number
+  availability: Record<string, boolean>
+}
+
+export interface Room {
+  id: string
+  name: string
+  category?: 'private' | 'public'
   width: number
   height: number
-  thumb: string
+  thumb?: string
   layers: {
     base: string
     shadow: string
@@ -14,7 +23,7 @@ export interface Room {
   }
   sections: RoomSection[]
   furniture?: FurniturePiece[]
-  availability: Record<string, boolean>
+  availability?: Record<string, boolean>
 }
 
 export interface RoomSection {
