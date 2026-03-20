@@ -1,39 +1,121 @@
 'use client'
 
-import { useCallback, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { Decor } from '@/features/decor/types'
 import { RoomCompositor } from '@/features/room-engine/compositor'
+import { CompositorWorkerClient } from '@/features/room-engine/compositor-worker-client'
 import type { Room } from '@/features/room-engine/types'
+
+async function preloadImage(url: string): Promise<void> {
+  const image = new Image()
+  image.src = url
+  await image.decode()
+}
+
+function canUseWorkerCompositor(): boolean {
+  return typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined'
+}
 
 export function useCompositor(width: number, height: number) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const compositorRef = useRef<RoomCompositor | null>(null)
+  const workerRef = useRef<CompositorWorkerClient | null>(null)
 
-  const compositor = useMemo(() => {
+  const [isReady, setIsReady] = useState(false)
+  const [isRendering, setIsRendering] = useState(false)
+
+  useEffect(() => {
     if (!canvasRef.current) {
-      return null
+      return
     }
 
-    return new RoomCompositor({
+    if (canUseWorkerCompositor()) {
+      workerRef.current = new CompositorWorkerClient()
+    }
+
+    compositorRef.current = new RoomCompositor({
       canvas: canvasRef.current,
       width,
       height,
+      workerClient: workerRef.current,
     })
+
+    setIsReady(true)
+
+    return () => {
+      compositorRef.current?.clearCache()
+      compositorRef.current = null
+      workerRef.current?.terminate()
+      workerRef.current = null
+      setIsReady(false)
+    }
   }, [height, width])
 
   const render = useCallback(
-    async (room: Room, sectionDecors: Map<string, Decor>, quality: 'low' | 'high') => {
+    async (room: Room, sectionDecors: Map<string, Decor>, quality: 'low' | 'high' = 'low') => {
+      const compositor = compositorRef.current
       if (!compositor) {
         return
       }
-      await compositor.render({ room, sectionDecors, quality })
+
+      setIsRendering(true)
+      try {
+        await compositor.render({ room, sectionDecors, quality })
+      } finally {
+        setIsRendering(false)
+      }
     },
-    [compositor],
+    [],
   )
+
+  const initRoom = useCallback(async (room: Room, sectionDecors: Map<string, Decor>) => {
+    const compositor = compositorRef.current
+    if (!compositor) {
+      return
+    }
+
+    setIsRendering(true)
+    try {
+      await compositor.renderBase(room.layers.base)
+    } finally {
+      setIsRendering(false)
+    }
+
+    const preloadUrls = [
+      room.layers.shadow,
+      ...(room.layers.reflection ? [room.layers.reflection] : []),
+      ...room.sections.map((section) => section.uvMask),
+      ...Array.from(sectionDecors.values()).map((decor) => decor.tile512),
+    ]
+
+    void Promise.all(preloadUrls.map((url) => preloadImage(url))).then(async () => {
+      await compositor.render({ room, sectionDecors, quality: 'low' })
+    })
+  }, [])
+
+  const renderProgressive = useCallback(
+    async (room: Room, sectionDecors: Map<string, Decor>) => {
+      await render(room, sectionDecors, 'low')
+
+      const hdUrls = Array.from(sectionDecors.values()).map((decor) => decor.tile2048)
+      await Promise.all(hdUrls.map((url) => preloadImage(url)))
+      await render(room, sectionDecors, 'high')
+    },
+    [render],
+  )
+
+  const clearCache = useCallback(() => {
+    compositorRef.current?.clearCache()
+  }, [])
 
   return {
     canvasRef,
-    compositor,
+    isReady,
+    isRendering,
+    initRoom,
     render,
+    renderProgressive,
+    clearCache,
   }
 }
