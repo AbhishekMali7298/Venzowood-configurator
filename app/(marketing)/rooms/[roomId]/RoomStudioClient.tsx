@@ -270,6 +270,10 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
     downloadCanvasAsPng(primaryCanvasRef.current, `${enrichedRoom.id}-export.png`)
   }, [enrichedRoom.id])
 
+  const activeSectionConfig = useMemo(
+    () => enrichedRoom.sections.find((section) => section.id === activeSection) ?? null,
+    [activeSection, enrichedRoom.sections],
+  )
   const activeDecorCode = activeSection ? sectionDecors.get(activeSection)?.code : undefined
   const compareClip = `${Math.round(compareMode.sliderPosition * 100)}%`
   const showCanvasLoading = !isPrimaryReady || (isPrimaryRendering && !initializedRef.current)
@@ -354,6 +358,8 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
       {drawerOpen && activeSection ? (
         <DecorDrawer
           sectionId={activeSection}
+          sectionLabel={activeSectionConfig?.label}
+          compatibleCategories={activeSectionConfig?.compatibleCategories}
           decors={source.decors}
           activeDecorCode={activeDecorCode}
           onSelect={handleDecorSelect}

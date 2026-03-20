@@ -1,10 +1,10 @@
 'use client'
 
 import type { FormEvent } from 'react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { uploadRoomAsset } from '@/services/admin-api'
-import { createRoom } from '@/services/room-api'
+import { createRoom, getRooms } from '@/services/room-api'
 
 type RoomCategory = 'private' | 'public'
 
@@ -51,10 +51,41 @@ export function RoomAdminClient() {
   const [countertopMaskFile, setCountertopMaskFile] = useState<File | null>(null)
 
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoadingRooms, setIsLoadingRooms] = useState(false)
+  const [existingRooms, setExistingRooms] = useState<Array<{ id: string; name: string; category: string }>>([])
   const [status, setStatus] = useState<{ type: 'idle' | 'error' | 'success'; message: string }>({
     type: 'idle',
     message: '',
   })
+
+  useEffect(() => {
+    let ignore = false
+
+    const loadRooms = async () => {
+      try {
+        setIsLoadingRooms(true)
+        const response = await getRooms()
+        if (!ignore) {
+          setExistingRooms(
+            response.rooms.map((room) => ({
+              id: room.id,
+              name: room.name,
+              category: room.category,
+            })),
+          )
+        }
+      } finally {
+        if (!ignore) {
+          setIsLoadingRooms(false)
+        }
+      }
+    }
+
+    void loadRooms()
+    return () => {
+      ignore = true
+    }
+  }, [])
 
   const canSubmit = useMemo(
     () =>
@@ -174,6 +205,10 @@ export function RoomAdminClient() {
       }
 
       const result = await createRoom(payload)
+      setExistingRooms((current) => {
+        const withoutSameId = current.filter((room) => room.id !== result.id)
+        return [{ id: result.id, name: payload.name, category: payload.category }, ...withoutSameId]
+      })
 
       setStatus({
         type: 'success',
@@ -190,14 +225,37 @@ export function RoomAdminClient() {
   }
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-10">
-      <h1 className="text-3xl font-semibold text-stone-900">Admin · Create Room</h1>
+    <main className="px-2 py-1">
+      <h1 className="text-2xl font-semibold text-stone-900">Room Manager</h1>
       <p className="mt-2 text-sm text-stone-600">
         Upload room assets and save room metadata to MongoDB in one step.
       </p>
 
-      <form onSubmit={handleSubmit} className="mt-8 space-y-8 rounded-xl border border-stone-300 bg-white p-6">
-        <section className="grid gap-4 md:grid-cols-2">
+      <div className="mt-6 grid gap-4 xl:grid-cols-[320px,1fr]">
+        <section className="rounded-xl border border-stone-300 bg-white p-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-stone-600">Existing Rooms</h2>
+          <div className="mt-3 max-h-[70vh] overflow-auto pr-1">
+            {isLoadingRooms ? (
+              <p className="text-sm text-stone-500">Loading rooms...</p>
+            ) : existingRooms.length === 0 ? (
+              <p className="text-sm text-stone-500">No rooms found.</p>
+            ) : (
+              <ul className="space-y-2">
+                {existingRooms.map((room) => (
+                  <li key={room.id} className="rounded border border-stone-200 bg-stone-50 px-3 py-2">
+                    <p className="text-sm font-medium text-stone-900">{room.name}</p>
+                    <p className="text-xs text-stone-500">
+                      {room.id} · {room.category}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+
+        <form onSubmit={handleSubmit} className="space-y-8 rounded-xl border border-stone-300 bg-white p-6">
+          <section className="grid gap-4 md:grid-cols-2">
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-stone-800">Room ID *</span>
             <input
@@ -259,43 +317,44 @@ export function RoomAdminClient() {
             />
             Available in DE
           </label>
-        </section>
+          </section>
 
-        <section className="grid gap-4 md:grid-cols-2">
-          <FileField label="Thumbnail" required onChange={setThumbFile} />
-          <FileField label="Base layer" required onChange={setBaseFile} />
-          <FileField label="Shadow layer" required onChange={setShadowFile} />
-          <FileField label="Reflection layer (optional)" onChange={setReflectionFile} />
-          <FileField label="UV mask: wall-main" required onChange={setWallMaskFile} />
-          <FileField label="UV mask: floor" required onChange={setFloorMaskFile} />
-          <FileField label="UV mask: countertop" required onChange={setCountertopMaskFile} />
-        </section>
+          <section className="grid gap-4 md:grid-cols-2">
+            <FileField label="Thumbnail" required onChange={setThumbFile} />
+            <FileField label="Base layer" required onChange={setBaseFile} />
+            <FileField label="Shadow layer" required onChange={setShadowFile} />
+            <FileField label="Reflection layer (optional)" onChange={setReflectionFile} />
+            <FileField label="UV mask: wall-main" required onChange={setWallMaskFile} />
+            <FileField label="UV mask: floor" required onChange={setFloorMaskFile} />
+            <FileField label="UV mask: countertop" required onChange={setCountertopMaskFile} />
+          </section>
 
-        {status.type !== 'idle' ? (
-          <div
-            className={`rounded border px-3 py-2 text-sm ${
-              status.type === 'success'
-                ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
-                : 'border-rose-300 bg-rose-50 text-rose-700'
-            }`}
-          >
-            {status.message}
+          {status.type !== 'idle' ? (
+            <div
+              className={`rounded border px-3 py-2 text-sm ${
+                status.type === 'success'
+                  ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
+                  : 'border-rose-300 bg-rose-50 text-rose-700'
+              }`}
+            >
+              {status.message}
+            </div>
+          ) : null}
+
+          <div className="flex items-center gap-3">
+            <button
+              type="submit"
+              disabled={isSubmitting || !canSubmit}
+              className="rounded bg-stone-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-stone-400"
+            >
+              {isSubmitting ? 'Uploading + Saving...' : 'Create Room'}
+            </button>
+            <p className="text-xs text-stone-500">
+              Required assets: thumb, base, shadow, and 3 UV masks.
+            </p>
           </div>
-        ) : null}
-
-        <div className="flex items-center gap-3">
-          <button
-            type="submit"
-            disabled={isSubmitting || !canSubmit}
-            className="rounded bg-stone-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-stone-400"
-          >
-            {isSubmitting ? 'Uploading + Saving...' : 'Create Room'}
-          </button>
-          <p className="text-xs text-stone-500">
-            Required assets: thumb, base, shadow, and 3 UV masks.
-          </p>
-        </div>
-      </form>
+        </form>
+      </div>
     </main>
   )
 }
