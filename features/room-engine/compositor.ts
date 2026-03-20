@@ -147,11 +147,33 @@ export class RoomCompositor {
       return this.imageCache.get(url) as HTMLImageElement | ImageBitmap
     }
 
-    const response = await fetch(url)
-    const blob = await response.blob()
-    const img = await createImageBitmap(blob)
-    this.imageCache.set(url, img)
-    return img
+    try {
+      const response = await fetch(url)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image: ${url} (${response.status})`)
+      }
+
+      const blob = await response.blob()
+      const bitmap = await createImageBitmap(blob)
+      this.imageCache.set(url, bitmap)
+      return bitmap
+    } catch (bitmapError) {
+      if (typeof Image === 'undefined') {
+        throw bitmapError
+      }
+
+      const imageElement = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const image = new Image()
+        image.decoding = 'async'
+        image.crossOrigin = 'anonymous'
+        image.onload = () => resolve(image)
+        image.onerror = () => reject(new Error(`Failed to decode image: ${url}`))
+        image.src = url
+      })
+
+      this.imageCache.set(url, imageElement)
+      return imageElement
+    }
   }
 
   private createCompositingSurface(): OffscreenCanvas | HTMLCanvasElement {

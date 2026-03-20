@@ -36,18 +36,31 @@ function shouldUsePlaceholders(): boolean {
   return process.env.NEXT_PUBLIC_USE_PLACEHOLDERS !== 'false'
 }
 
+function shouldUsePlaceholderThumb(src: string): boolean {
+  return shouldUsePlaceholders() && /^https?:\/\//i.test(src)
+}
+
+function normalizeTag(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
 function RoomThumbnail({ src, alt }: { src: string; alt: string }) {
   const placeholder = roomThumbPlaceholder(alt)
-  const [thumbSrc, setThumbSrc] = useState(shouldUsePlaceholders() ? placeholder : src)
+  const [thumbSrc, setThumbSrc] = useState(shouldUsePlaceholderThumb(src) ? placeholder : src)
 
   return (
     <Image
       src={thumbSrc}
       alt={alt}
-      className="h-40 w-full object-cover"
+      className="h-full w-full object-cover"
       width={640}
       height={400}
       loading="lazy"
+      sizes="(max-width: 768px) 100vw, 50vw"
       unoptimized={thumbSrc.startsWith('data:image')}
       onError={() => setThumbSrc(placeholder)}
     />
@@ -56,57 +69,188 @@ function RoomThumbnail({ src, alt }: { src: string; alt: string }) {
 
 export function RoomBrowserClient({ rooms, initialDecors }: RoomBrowserClientProps) {
   const [category, setCategory] = useState<'all' | 'private' | 'public'>('all')
+  const [roomTag, setRoomTag] = useState<string>('all')
+
+  const privateRooms = useMemo(() => rooms.filter((room) => room.category === 'private'), [rooms])
+  const publicRooms = useMemo(() => rooms.filter((room) => room.category === 'public'), [rooms])
 
   const filteredRooms = useMemo(() => {
-    if (category === 'all') {
-      return rooms
+    const byCategory = category === 'all' ? rooms : rooms.filter((room) => room.category === category)
+    if (roomTag === 'all') {
+      return byCategory
     }
 
-    return rooms.filter((room) => room.category === category)
-  }, [category, rooms])
+    return byCategory.filter((room) => normalizeTag(room.name) === roomTag)
+  }, [category, roomTag, rooms])
+
+  const resetFilters = () => {
+    setCategory('all')
+    setRoomTag('all')
+  }
+
+  const selectByCategory = (next: 'all' | 'private' | 'public') => {
+    setCategory(next)
+    setRoomTag('all')
+  }
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-12">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold text-stone-900">Rooms</h1>
-          <p className="text-sm text-stone-600">
-            {initialDecors.length} decors preloaded for instant customization
-          </p>
+    <main className="min-h-screen bg-stone-100">
+      <div className="mx-auto max-w-[1380px] px-4 pb-10 pt-8 md:px-8">
+        <div className="mb-6 flex items-end justify-between border-b border-stone-300 pb-3">
+          <h1 className="text-5xl font-light tracking-tight text-stone-900">Rooms</h1>
+          <p className="hidden text-2xl font-light text-stone-800 md:block">Choose your room</p>
         </div>
-        <div className="flex gap-2">
-          {(['all', 'private', 'public'] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => setCategory(option)}
-              className={`rounded-full px-3 py-1.5 text-sm font-medium ${
-                option === category
-                  ? 'bg-stone-900 text-white'
-                  : 'bg-stone-200 text-stone-800 hover:bg-stone-300'
-              }`}
-            >
-              {option}
-            </button>
-          ))}
-        </div>
-      </div>
 
-      <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {filteredRooms.map((room) => (
-          <Link
-            key={room.id}
-            href={`/rooms/${room.id}`}
-            className="rounded-xl border border-stone-300 bg-white p-5 transition hover:border-stone-500"
-          >
-            <div className="mb-3 overflow-hidden rounded-lg border border-stone-200 bg-stone-100">
-              <RoomThumbnail src={room.thumb} alt={room.name} />
+        <div className="grid gap-6 lg:h-[calc(100vh-180px)] lg:grid-cols-[300px,1fr] lg:overflow-hidden">
+          <aside className="rounded-md border border-stone-300 bg-stone-50 p-6 lg:sticky lg:top-0 lg:h-full lg:overflow-y-auto">
+            <div className="space-y-8 text-stone-900">
+              <section>
+                <button
+                  type="button"
+                  className="mb-4 flex w-full items-center justify-between text-left text-xl font-semibold tracking-wide"
+                  onClick={() => selectByCategory('private')}
+                >
+                  PRIVATE
+                  <span className="text-rose-500">⌄</span>
+                </button>
+                <div className="space-y-3">
+                  {privateRooms.map((room) => {
+                    const tag = normalizeTag(room.name)
+                    const selected = category === 'private' && roomTag === tag
+                    return (
+                      <button
+                        key={room.id}
+                        type="button"
+                        className="flex w-full items-center gap-3 text-left text-lg text-stone-800"
+                        onClick={() => {
+                          setCategory('private')
+                          setRoomTag(tag)
+                        }}
+                      >
+                        <span
+                          className={`h-5 w-5 rounded-full border ${
+                            selected ? 'border-stone-900 bg-stone-900' : 'border-stone-300 bg-white'
+                          }`}
+                        />
+                        <span>{room.name}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </section>
+
+              <section>
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between text-left text-xl font-semibold tracking-wide"
+                  onClick={() => selectByCategory('public')}
+                >
+                  PUBLIC
+                  <span className="text-rose-500">⌄</span>
+                </button>
+                <div className="mt-3 space-y-3">
+                  {publicRooms.length === 0 ? (
+                    <p className="text-sm text-stone-500">No public rooms available.</p>
+                  ) : (
+                    publicRooms.map((room) => {
+                      const tag = normalizeTag(room.name)
+                      const selected = category === 'public' && roomTag === tag
+                      return (
+                        <button
+                          key={room.id}
+                          type="button"
+                          className="flex w-full items-center gap-3 text-left text-lg text-stone-800"
+                          onClick={() => {
+                            setCategory('public')
+                            setRoomTag(tag)
+                          }}
+                        >
+                          <span
+                            className={`h-5 w-5 rounded-full border ${
+                              selected ? 'border-stone-900 bg-stone-900' : 'border-stone-300 bg-white'
+                            }`}
+                          />
+                          <span>{room.name}</span>
+                        </button>
+                      )
+                    })
+                  )}
+                </div>
+              </section>
+
+              <section className="border-t border-stone-300 pt-5">
+                <h3 className="text-xl font-semibold tracking-wide">LOAD PROJECT</h3>
+                <p className="mt-3 text-sm text-stone-600">
+                  Enter the project ID of a project saved previously in order to load it again.
+                </p>
+                <div className="mt-4 flex items-center gap-2">
+                  <input
+                    type="text"
+                    className="h-11 flex-1 border border-stone-300 bg-white px-3 text-sm text-stone-800 outline-none ring-0 placeholder:text-stone-400"
+                    placeholder="Project ID"
+                  />
+                  <button
+                    type="button"
+                    className="h-11 w-11 bg-rose-600 text-xl text-white transition hover:bg-rose-700"
+                    aria-label="Load project"
+                  >
+                    ›
+                  </button>
+                </div>
+              </section>
             </div>
-            <p className="text-lg font-medium text-stone-900">{room.name}</p>
-            <p className="mt-2 text-sm text-stone-600">{room.category}</p>
-            <p className="mt-1 text-xs text-stone-500">{room.sectionCount} surfaces</p>
-          </Link>
-        ))}
+          </aside>
+
+          <section className="lg:h-full lg:overflow-y-auto lg:pr-1">
+            <div className="mb-4 flex items-center justify-between">
+              <button
+                type="button"
+                className="text-sm font-medium tracking-wide text-stone-400 hover:text-stone-600"
+                onClick={resetFilters}
+              >
+                ↻ RESET FILTER
+              </button>
+              <div className="flex items-center gap-3">
+                <p className="text-base text-stone-900">Room results</p>
+                <span className="rounded-full bg-rose-100 px-3 py-1 text-sm font-semibold text-stone-900">
+                  {filteredRooms.length}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid gap-5 md:grid-cols-2">
+              {filteredRooms.map((room) => (
+                <Link
+                  key={room.id}
+                  href={`/rooms/${room.id}`}
+                  className="group overflow-hidden border border-stone-300 bg-white"
+                >
+                  <div className="relative aspect-[16/9] w-full overflow-hidden bg-stone-200">
+                    <RoomThumbnail src={room.thumb} alt={room.name} />
+                  </div>
+                  <div className="border-t border-stone-200 px-4 py-3">
+                    <p className="text-lg font-medium text-stone-900 transition group-hover:text-rose-700">
+                      {room.name}
+                    </p>
+                    <p className="mt-1 text-sm text-stone-600">
+                      {room.category} · {room.sectionCount} surfaces
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+
+            {filteredRooms.length === 0 ? (
+              <div className="mt-6 rounded-md border border-stone-300 bg-white p-8 text-sm text-stone-600">
+                No rooms match this filter. Try reset filter.
+              </div>
+            ) : null}
+          </section>
+        </div>
+
+        <p className="mt-8 text-sm text-stone-500">
+          {initialDecors.length} decors preloaded for instant customization
+        </p>
       </div>
     </main>
   )
