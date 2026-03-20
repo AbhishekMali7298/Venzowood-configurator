@@ -7,6 +7,40 @@ export interface RoomsResponse {
   total: number
 }
 
+export interface CreateRoomPayload {
+  id: string
+  name: string
+  category: 'private' | 'public'
+  width: number
+  height: number
+  thumb: string
+  layers: {
+    base: string
+    shadow: string
+    reflection?: string
+  }
+  sections: Array<{
+    id: string
+    label: string
+    surfaceType: 'wall' | 'floor' | 'ceiling' | 'countertop' | 'cabinet' | 'door'
+    hotspot: {
+      nx: number
+      ny: number
+    }
+    uvMask: string
+    tileScale: number
+    defaultDecorCode: string
+    compatibleCategories: string[]
+    renderOrder: number
+  }>
+  furniture?: Array<{
+    id: string
+    src: string
+    zIndex: number
+  }>
+  availability: Record<string, boolean>
+}
+
 export async function getRooms(
   params: { country?: string; category?: string } = {},
 ): Promise<RoomsResponse> {
@@ -27,4 +61,12 @@ export async function getRooms(
 
 export async function getRoom(id: string): Promise<Room> {
   return apiRequest<Room>(`/rooms/${id}`)
+}
+
+export async function createRoom(payload: CreateRoomPayload): Promise<{ id: string }> {
+  return apiRequest<{ id: string }>('/rooms', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    cache: 'no-store',
+  })
 }
