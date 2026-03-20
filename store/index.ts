@@ -1,6 +1,9 @@
+import { enableMapSet } from 'immer'
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
+
+enableMapSet()
 
 import type { DecorSlice } from './decorSlice'
 import type { ProjectSlice } from './projectSlice'

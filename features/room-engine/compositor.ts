@@ -46,7 +46,7 @@ export class RoomCompositor {
     await this.drawLayer(room.layers.base)
 
     for (const section of room.sections) {
-      const decor = sectionDecors.get(section.id) ?? section.defaultDecor
+      const decor = sectionDecors.get(section.id)
       if (decor) {
         await this.drawDecorSurface(section, decor, quality)
       }
@@ -163,11 +163,18 @@ export class RoomCompositor {
       }
 
       const imageElement = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const fallbackSrc = 'data:image/svg+xml;charset=utf-8,%3Csvg xmlns="http://www.w3.org/2000/svg" width="128" height="128"%3E%3Crect width="100%25" height="100%25" fill="%23e5e5e5" /%3E%3Ccrcle cx="64" cy="64" r="16" fill="%23999" /%3E%3C/svg%3E'
         const image = new Image()
         image.decoding = 'async'
         image.crossOrigin = 'anonymous'
         image.onload = () => resolve(image)
-        image.onerror = () => reject(new Error(`Failed to decode image: ${url}`))
+        image.onerror = () => {
+          console.warn(`Failed to decode image: ${url}. Displaying placeholder.`)
+          const fallback = new Image()
+          fallback.onload = () => resolve(fallback)
+          fallback.onerror = () => reject(new Error(`Fallback failed for: ${url}`))
+          fallback.src = fallbackSrc
+        }
         image.src = url
       })
 
