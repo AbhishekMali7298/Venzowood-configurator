@@ -1,13 +1,15 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
 
 import { DecorDrawer } from '@/components/decor/DecorDrawer'
 import { ComparisonSlider } from '@/components/room/ComparisonSlider'
 import { HotspotOverlay } from '@/components/room/HotspotOverlay'
 import { RoomCanvas } from '@/components/room/RoomCanvas'
 import { SectionLabel } from '@/components/room/SectionLabel'
+import { Spinner } from '@/components/ui/Spinner'
+import { StudioStatus } from '@/components/room/StudioStatus'
+import { StudioToolbar } from '@/components/room/StudioToolbar'
 import type { Decor } from '@/features/decor/types'
 import { applyPlaceholderAssets } from '@/features/room-engine/placeholders'
 import type { Room } from '@/features/room-engine/types'
@@ -20,16 +22,14 @@ import { downloadCanvasAsPng } from '@/utils/image'
 interface RoomStudioClientProps {
   room: Room
   decors: Decor[]
+  projectFromQuery?: string | null
 }
 
 function shouldUsePlaceholders(): boolean {
   return process.env.NEXT_PUBLIC_USE_PLACEHOLDERS !== 'false'
 }
 
-export function RoomStudioClient({ room, decors }: RoomStudioClientProps) {
-  const searchParams = useSearchParams()
-  const projectFromQuery = searchParams.get('project')
-
+export function RoomStudioClient({ room, decors, projectFromQuery = null }: RoomStudioClientProps) {
   const initializedRef = useRef(false)
   const compareInitializedRef = useRef(false)
   const loadedProjectRef = useRef<string | null>(null)
@@ -232,8 +232,9 @@ export function RoomStudioClient({ room, decors }: RoomStudioClientProps) {
   }, [enrichedRoom.id])
 
   const activeDecorCode = activeSection ? sectionDecors.get(activeSection)?.code : undefined
-
   const compareClip = `${Math.round(compareMode.sliderPosition * 100)}%`
+  const showCanvasLoading =
+    !primaryCompositor.isReady || (primaryCompositor.isRendering && !initializedRef.current)
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-8">
@@ -242,51 +243,24 @@ export function RoomStudioClient({ room, decors }: RoomStudioClientProps) {
           <h1 className="text-2xl font-semibold text-stone-900">{enrichedRoom.name}</h1>
           <SectionLabel text="Click a dot to change this surface" />
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={handleToggleCompare}
-            className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm font-medium hover:border-stone-500"
-          >
-            {compareMode.isActive ? 'Exit Compare' : 'Compare'}
-          </button>
-          {compareMode.isActive ? (
-            <button
-              type="button"
-              onClick={handleRefreshBaseline}
-              className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm font-medium hover:border-stone-500"
-            >
-              Refresh Baseline
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={handleSaveProject}
-            className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm font-medium hover:border-stone-500"
-          >
-            {saveState === 'saving' ? 'Saving...' : 'Save Project'}
-          </button>
-          <button
-            type="button"
-            onClick={handleExportPng}
-            className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm font-medium hover:border-stone-500"
-          >
-            Export PNG
-          </button>
-        </div>
+        <StudioToolbar
+          compareActive={compareMode.isActive}
+          saveState={saveState}
+          onToggleCompare={handleToggleCompare}
+          onRefreshBaseline={handleRefreshBaseline}
+          onSaveProject={handleSaveProject}
+          onExportPng={handleExportPng}
+        />
       </div>
 
-      <div className="mb-3 flex flex-wrap items-center gap-4 text-xs text-stone-600">
-        <span>
-          Render: {primaryCompositor.isRendering ? 'Rendering...' : 'Ready'}
-          {compareMode.isActive
-            ? ` · Compare: ${compareCompositor.isRendering ? 'Rendering...' : 'Ready'}`
-            : ''}
-        </span>
-        {projectId ? <span>Project ID: {projectId}</span> : null}
-        {lastSaved ? <span>Last saved: {lastSaved.toLocaleString()}</span> : null}
-        {saveState === 'error' ? <span>Unable to save/load project.</span> : null}
-      </div>
+      <StudioStatus
+        renderReady={!primaryCompositor.isRendering}
+        compareActive={compareMode.isActive}
+        compareReady={!compareCompositor.isRendering}
+        projectId={projectId}
+        lastSaved={lastSaved}
+        saveState={saveState}
+      />
 
       <div className="relative overflow-hidden rounded-xl border border-stone-300 bg-stone-900/5">
         <RoomCanvas
@@ -316,6 +290,12 @@ export function RoomStudioClient({ room, decors }: RoomStudioClientProps) {
           activeSection={activeSection}
           onSelect={handleHotspotSelect}
         />
+
+        {showCanvasLoading ? (
+          <div className="absolute inset-0 flex items-center justify-center bg-stone-200/60 backdrop-blur-[1px]">
+            <Spinner />
+          </div>
+        ) : null}
       </div>
 
       {compareMode.isActive ? (

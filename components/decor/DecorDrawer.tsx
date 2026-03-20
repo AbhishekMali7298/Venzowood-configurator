@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 
 import type { Decor } from '@/features/decor/types'
+import { preloadDecorTiles } from '@/features/decor/tile-loader'
 
 import { CategoryFilter } from './CategoryFilter'
 import { DecorCard } from './DecorCard'
@@ -18,6 +19,16 @@ interface DecorDrawerProps {
   activeDecorCode?: string
   onSelect: (sectionId: string, decor: Decor) => void
   onClose: () => void
+}
+
+function DecorGridSkeleton() {
+  return (
+    <div className="mt-4 grid grid-cols-4 gap-2">
+      {Array.from({ length: 12 }).map((_, index) => (
+        <div key={index} className="h-[116px] animate-pulse rounded-lg bg-stone-200" />
+      ))}
+    </div>
+  )
 }
 
 export function DecorDrawer({
@@ -70,7 +81,9 @@ export function DecorDrawer({
       </div>
 
       <div ref={parentRef} className="mt-4 h-[70vh] overflow-auto" data-testid="decor-drawer">
-        {filtered.length === 0 ? (
+        {decors.length === 0 ? (
+          <DecorGridSkeleton />
+        ) : filtered.length === 0 ? (
           <p className="py-8 text-sm text-stone-600">No decors match your filter.</p>
         ) : (
           <div className="relative w-full" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
@@ -89,6 +102,9 @@ export function DecorDrawer({
                       key={decor.code}
                       decor={decor}
                       active={decor.code === activeDecorCode}
+                      onHover={(candidate) => {
+                        void preloadDecorTiles(candidate.tile512, candidate.tile2048)
+                      }}
                       onSelect={(selected) => onSelect(sectionId, selected)}
                     />
                   ))}

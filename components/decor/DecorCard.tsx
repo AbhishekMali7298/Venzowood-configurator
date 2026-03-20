@@ -4,15 +4,18 @@ interface DecorCardProps {
   decor: Decor
   active: boolean
   onSelect: (decor: Decor) => void
+  onHover?: (decor: Decor) => void
 }
 
-export function DecorCard({ decor, active, onSelect }: DecorCardProps) {
+export function DecorCard({ decor, active, onSelect, onHover }: DecorCardProps) {
   return (
     <button
       className={`rounded-lg border p-3 text-left transition ${
         active ? 'border-stone-900 bg-stone-50' : 'border-stone-300 hover:border-stone-500'
       }`}
       onClick={() => onSelect(decor)}
+      onMouseEnter={() => onHover?.(decor)}
+      onFocus={() => onHover?.(decor)}
       type="button"
       data-testid={`decor-card-${decor.code}`}
     >

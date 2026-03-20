@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { Decor } from '@/features/decor/types'
+import { preloadDecorTiles } from '@/features/decor/tile-loader'
 import { RoomCompositor } from '@/features/room-engine/compositor'
 import { CompositorWorkerClient } from '@/features/room-engine/compositor-worker-client'
 import type { Room } from '@/features/room-engine/types'
@@ -86,14 +87,17 @@ export function useCompositor(width: number, height: number) {
       setIsRendering(false)
     }
 
-    const preloadUrls = [
-      room.layers.shadow,
-      ...(room.layers.reflection ? [room.layers.reflection] : []),
-      ...room.sections.map((section) => section.uvMask),
-      ...Array.from(sectionDecors.values()).map((decor) => decor.tile512),
+    const preloadTasks: Array<Promise<void>> = [
+      preloadImage(room.layers.shadow),
+      ...room.sections.map((section) => preloadImage(section.uvMask)),
+      ...Array.from(sectionDecors.values()).map((decor) => preloadDecorTiles(decor.tile512)),
     ]
 
-    void Promise.all(preloadUrls.map((url) => preloadImage(url))).then(async () => {
+    if (room.layers.reflection) {
+      preloadTasks.push(preloadImage(room.layers.reflection))
+    }
+
+    void Promise.allSettled(preloadTasks).then(async () => {
       await compositor.render({ room, sectionDecors, quality: 'low' })
     })
   }, [])
@@ -102,8 +106,11 @@ export function useCompositor(width: number, height: number) {
     async (room: Room, sectionDecors: Map<string, Decor>) => {
       await render(room, sectionDecors, 'low')
 
-      const hdUrls = Array.from(sectionDecors.values()).map((decor) => decor.tile2048)
-      await Promise.all(hdUrls.map((url) => preloadImage(url)))
+      const hdTasks = Array.from(sectionDecors.values()).map((decor) =>
+        preloadDecorTiles(decor.tile512, decor.tile2048),
+      )
+      await Promise.allSettled(hdTasks)
+
       await render(room, sectionDecors, 'high')
     },
     [render],

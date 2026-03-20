@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 
+import { RoomSkeleton } from '@/components/room/RoomSkeleton'
 import { getDecors } from '@/services/decor-api'
 import { getRoom } from '@/services/room-api'
 
@@ -10,6 +11,9 @@ import { RoomStudioClient } from './RoomStudioClient'
 interface RoomPageProps {
   params: {
     roomId: string
+  }
+  searchParams?: {
+    project?: string | string[]
   }
 }
 
@@ -27,7 +31,7 @@ export async function generateMetadata({ params }: RoomPageProps): Promise<Metad
   }
 }
 
-export default async function RoomPage({ params }: RoomPageProps) {
+export default async function RoomPage({ params, searchParams }: RoomPageProps) {
   let roomData: {
     room: Awaited<ReturnType<typeof getRoom>>
     decors: Awaited<ReturnType<typeof getDecors>>
@@ -47,9 +51,17 @@ export default async function RoomPage({ params }: RoomPageProps) {
     notFound()
   }
 
+  const projectFromQuery = Array.isArray(searchParams?.project)
+    ? (searchParams?.project[0] ?? null)
+    : (searchParams?.project ?? null)
+
   return (
-    <Suspense fallback={<div className="mx-auto max-w-6xl px-6 py-8">Loading room...</div>}>
-      <RoomStudioClient room={roomData.room} decors={roomData.decors.decors} />
+    <Suspense fallback={<RoomSkeleton />}>
+      <RoomStudioClient
+        room={roomData.room}
+        decors={roomData.decors.decors}
+        projectFromQuery={projectFromQuery}
+      />
     </Suspense>
   )
 }
