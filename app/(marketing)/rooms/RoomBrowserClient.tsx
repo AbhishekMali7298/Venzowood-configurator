@@ -88,32 +88,23 @@ export function RoomBrowserClient({ rooms, initialDecors }: RoomBrowserClientPro
     setRoomTag('all')
   }
 
-  const selectByCategory = (next: 'all' | 'private' | 'public') => {
-    setCategory(next)
-    setRoomTag('all')
-  }
-
   return (
     <main className="min-h-screen bg-stone-100">
       <div className="mx-auto max-w-[1380px] px-4 pb-10 pt-8 md:px-8">
         <div className="mb-6 flex items-end justify-between border-b border-stone-300 pb-3">
-          <h1 className="text-5xl font-light tracking-tight text-stone-900">Rooms</h1>
-          <p className="hidden text-2xl font-light text-stone-800 md:block">Choose your room</p>
+          <h1 className="text-4xl font-light tracking-tight text-stone-900">Rooms</h1>
+          <p className="hidden text-xl font-light text-stone-800 md:block">Choose your room</p>
         </div>
 
         <div className="grid gap-6 lg:h-[calc(100vh-180px)] lg:grid-cols-[300px,1fr] lg:overflow-hidden">
-          <aside className="rounded-md border border-stone-300 bg-stone-50 p-6 lg:sticky lg:top-0 lg:h-full lg:overflow-y-auto">
-            <div className="space-y-8 text-stone-900">
+          <aside className="rounded-md border border-stone-300 bg-stone-50 p-5 lg:sticky lg:top-0">
+            <div className="space-y-6 text-stone-900">
               <section>
-                <button
-                  type="button"
-                  className="mb-4 flex w-full items-center justify-between text-left text-xl font-semibold tracking-wide"
-                  onClick={() => selectByCategory('private')}
-                >
+                <div className="mb-3 flex w-full items-center justify-between text-left text-lg font-semibold tracking-wide">
                   PRIVATE
                   <span className="text-rose-500">⌄</span>
-                </button>
-                <div className="space-y-3">
+                </div>
+                <div className="space-y-2">
                   {privateRooms.map((room) => {
                     const tag = normalizeTag(room.name)
                     const selected = category === 'private' && roomTag === tag
@@ -121,14 +112,14 @@ export function RoomBrowserClient({ rooms, initialDecors }: RoomBrowserClientPro
                       <button
                         key={room.id}
                         type="button"
-                        className="flex w-full items-center gap-3 text-left text-lg text-stone-800"
+                        className="flex w-full items-center gap-2 text-left text-[1.05rem] text-stone-800"
                         onClick={() => {
                           setCategory('private')
                           setRoomTag(tag)
                         }}
                       >
                         <span
-                          className={`h-5 w-5 rounded-full border ${
+                          className={`h-4 w-4 rounded-full border ${
                             selected ? 'border-stone-900 bg-stone-900' : 'border-stone-300 bg-white'
                           }`}
                         />
@@ -140,15 +131,11 @@ export function RoomBrowserClient({ rooms, initialDecors }: RoomBrowserClientPro
               </section>
 
               <section>
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-between text-left text-xl font-semibold tracking-wide"
-                  onClick={() => selectByCategory('public')}
-                >
+                <div className="flex w-full items-center justify-between text-left text-lg font-semibold tracking-wide">
                   PUBLIC
                   <span className="text-rose-500">⌄</span>
-                </button>
-                <div className="mt-3 space-y-3">
+                </div>
+                <div className="mt-2 space-y-2">
                   {publicRooms.length === 0 ? (
                     <p className="text-sm text-stone-500">No public rooms available.</p>
                   ) : (
@@ -159,14 +146,14 @@ export function RoomBrowserClient({ rooms, initialDecors }: RoomBrowserClientPro
                         <button
                           key={room.id}
                           type="button"
-                          className="flex w-full items-center gap-3 text-left text-lg text-stone-800"
+                          className="flex w-full items-center gap-2 text-left text-[1.05rem] text-stone-800"
                           onClick={() => {
                             setCategory('public')
                             setRoomTag(tag)
                           }}
                         >
                           <span
-                            className={`h-5 w-5 rounded-full border ${
+                            className={`h-4 w-4 rounded-full border ${
                               selected ? 'border-stone-900 bg-stone-900' : 'border-stone-300 bg-white'
                             }`}
                           />
@@ -179,19 +166,19 @@ export function RoomBrowserClient({ rooms, initialDecors }: RoomBrowserClientPro
               </section>
 
               <section className="border-t border-stone-300 pt-5">
-                <h3 className="text-xl font-semibold tracking-wide">LOAD PROJECT</h3>
-                <p className="mt-3 text-sm text-stone-600">
+                <h3 className="text-lg font-semibold tracking-wide">LOAD PROJECT</h3>
+                <p className="mt-2 text-xs text-stone-600">
                   Enter the project ID of a project saved previously in order to load it again.
                 </p>
                 <div className="mt-4 flex items-center gap-2">
                   <input
                     type="text"
-                    className="h-11 flex-1 border border-stone-300 bg-white px-3 text-sm text-stone-800 outline-none ring-0 placeholder:text-stone-400"
+                    className="h-10 flex-1 border border-stone-300 bg-white px-3 text-sm text-stone-800 outline-none ring-0 placeholder:text-stone-400"
                     placeholder="Project ID"
                   />
                   <button
                     type="button"
-                    className="h-11 w-11 bg-rose-600 text-xl text-white transition hover:bg-rose-700"
+                    className="h-10 w-10 bg-rose-600 text-xl text-white transition hover:bg-rose-700"
                     aria-label="Load project"
                   >
                     ›
