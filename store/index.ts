@@ -29,6 +29,10 @@ export const useStore = create<AppStore>()(
         set((state) => {
           state.catalogue = decors
         }),
+      setSectionDecors: (sectionDecors) =>
+        set((state) => {
+          state.sectionDecors = new Map(sectionDecors)
+        }),
       selectDecor: (sectionId, decor) =>
         set((state) => {
           state.sectionDecors.set(sectionId, decor)
@@ -37,6 +41,7 @@ export const useStore = create<AppStore>()(
       resetSection: (sectionId) =>
         set((state) => {
           state.sectionDecors.delete(sectionId)
+          state.isDirty = true
         }),
       resetAll: () =>
         set((state) => {

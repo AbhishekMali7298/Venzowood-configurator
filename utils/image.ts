@@ -12,3 +12,10 @@ export async function preloadImages(urls: string[]): Promise<HTMLImageElement[]>
 export function imageToDataURL(canvas: HTMLCanvasElement): string {
   return canvas.toDataURL('image/png')
 }
+
+export function downloadCanvasAsPng(canvas: HTMLCanvasElement, filename: string): void {
+  const anchor = document.createElement('a')
+  anchor.href = imageToDataURL(canvas)
+  anchor.download = filename
+  anchor.click()
+}

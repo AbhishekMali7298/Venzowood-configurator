@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
+import { Suspense } from 'react'
 
 import { getDecors } from '@/services/decor-api'
 import { getRoom } from '@/services/room-api'
@@ -46,5 +47,9 @@ export default async function RoomPage({ params }: RoomPageProps) {
     notFound()
   }
 
-  return <RoomStudioClient room={roomData.room} decors={roomData.decors.decors} />
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-6xl px-6 py-8">Loading room...</div>}>
+      <RoomStudioClient room={roomData.room} decors={roomData.decors.decors} />
+    </Suspense>
+  )
 }

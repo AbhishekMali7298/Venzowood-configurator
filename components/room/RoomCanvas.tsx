@@ -6,9 +6,10 @@ interface RoomCanvasProps {
   width: number
   height: number
   onReady?: (canvas: HTMLCanvasElement) => void
+  className?: string
 }
 
-export function RoomCanvas({ width, height, onReady }: RoomCanvasProps) {
+export function RoomCanvas({ width, height, onReady, className }: RoomCanvasProps) {
   const ref = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -22,7 +23,7 @@ export function RoomCanvas({ width, height, onReady }: RoomCanvasProps) {
       ref={ref}
       width={width}
       height={height}
-      className="h-auto w-full rounded-xl border border-stone-300 bg-white"
+      className={className ?? 'h-auto w-full rounded-xl border border-stone-300 bg-white'}
       data-testid="room-canvas"
     />
   )
