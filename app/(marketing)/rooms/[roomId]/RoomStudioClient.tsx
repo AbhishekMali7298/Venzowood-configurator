@@ -94,8 +94,21 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
 
   const sectionDecors = useMemo(() => new Map(sectionDecorEntries), [sectionDecorEntries])
 
-  const primaryCompositor = useCompositor(enrichedRoom.width, enrichedRoom.height)
-  const compareCompositor = useCompositor(enrichedRoom.width, enrichedRoom.height)
+  const {
+    attachCanvas: attachPrimaryCanvas,
+    isReady: isPrimaryReady,
+    isRendering: isPrimaryRendering,
+    initRoom: initPrimaryRoom,
+    render: renderPrimary,
+    renderProgressive: renderPrimaryProgressive,
+  } = useCompositor(enrichedRoom.width, enrichedRoom.height)
+  const {
+    attachCanvas: attachCompareCanvas,
+    isReady: isCompareReady,
+    isRendering: isCompareRendering,
+    initRoom: initCompareRoom,
+    render: renderCompare,
+  } = useCompositor(enrichedRoom.width, enrichedRoom.height)
 
   const compareMode = useCompareMode()
 
@@ -112,16 +125,16 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
   const handlePrimaryCanvasReady = useCallback(
     (canvas: HTMLCanvasElement) => {
       primaryCanvasRef.current = canvas
-      primaryCompositor.attachCanvas(canvas)
+      attachPrimaryCanvas(canvas)
     },
-    [primaryCompositor],
+    [attachPrimaryCanvas],
   )
 
   const handleCompareCanvasReady = useCallback(
     (canvas: HTMLCanvasElement) => {
-      compareCompositor.attachCanvas(canvas)
+      attachCompareCanvas(canvas)
     },
-    [compareCompositor],
+    [attachCompareCanvas],
   )
 
   useEffect(() => {
@@ -130,18 +143,18 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
   }, [enrichedRoom, setCatalogue, setRoom, source.decors])
 
   useEffect(() => {
-    if (!primaryCompositor.isReady) {
+    if (!isPrimaryReady) {
       return
     }
 
     if (!initializedRef.current) {
       initializedRef.current = true
-      void primaryCompositor.initRoom(enrichedRoom, sectionDecors)
+      void initPrimaryRoom(enrichedRoom, sectionDecors)
       return
     }
 
-    void primaryCompositor.render(enrichedRoom, sectionDecors, 'low')
-  }, [enrichedRoom, primaryCompositor, sectionDecors])
+    void renderPrimary(enrichedRoom, sectionDecors, 'low')
+  }, [enrichedRoom, initPrimaryRoom, isPrimaryReady, renderPrimary, sectionDecors])
 
   useEffect(() => {
     setCompareMode(compareMode.isActive)
@@ -151,22 +164,24 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
       return
     }
 
-    if (!compareCompositor.isReady) {
+    if (!isCompareReady) {
       return
     }
 
     if (!compareInitializedRef.current) {
       compareInitializedRef.current = true
-      void compareCompositor.initRoom(enrichedRoom, compareMode.baselineDecors)
+      void initCompareRoom(enrichedRoom, compareMode.baselineDecors)
       return
     }
 
-    void compareCompositor.render(enrichedRoom, compareMode.baselineDecors, 'low')
+    void renderCompare(enrichedRoom, compareMode.baselineDecors, 'low')
   }, [
-    compareCompositor,
     compareMode.baselineDecors,
     compareMode.isActive,
     enrichedRoom,
+    initCompareRoom,
+    isCompareReady,
+    renderCompare,
     setCompareMode,
   ])
 
@@ -200,9 +215,9 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
       selectDecor(sectionId, decor)
       const next = new Map(sectionDecors)
       next.set(sectionId, decor)
-      void primaryCompositor.renderProgressive(enrichedRoom, next)
+      void renderPrimaryProgressive(enrichedRoom, next)
     },
-    [enrichedRoom, primaryCompositor, sectionDecors, selectDecor],
+    [enrichedRoom, renderPrimaryProgressive, sectionDecors, selectDecor],
   )
 
   const handleToggleCompare = useCallback(() => {
@@ -233,8 +248,7 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
 
   const activeDecorCode = activeSection ? sectionDecors.get(activeSection)?.code : undefined
   const compareClip = `${Math.round(compareMode.sliderPosition * 100)}%`
-  const showCanvasLoading =
-    !primaryCompositor.isReady || (primaryCompositor.isRendering && !initializedRef.current)
+  const showCanvasLoading = !isPrimaryReady || (isPrimaryRendering && !initializedRef.current)
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-8">
@@ -254,9 +268,9 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
       </div>
 
       <StudioStatus
-        renderReady={!primaryCompositor.isRendering}
+        renderReady={!isPrimaryRendering}
         compareActive={compareMode.isActive}
-        compareReady={!compareCompositor.isRendering}
+        compareReady={!isCompareRendering}
         projectId={projectId}
         lastSaved={lastSaved}
         saveState={saveState}

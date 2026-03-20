@@ -11,11 +11,16 @@ interface RoomCanvasProps {
 
 export function RoomCanvas({ width, height, onReady, className }: RoomCanvasProps) {
   const ref = useRef<HTMLCanvasElement>(null)
+  const reportedCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
   useEffect(() => {
-    if (ref.current) {
-      onReady?.(ref.current)
+    const canvas = ref.current
+    if (!canvas || !onReady || reportedCanvasRef.current === canvas) {
+      return
     }
+
+    reportedCanvasRef.current = canvas
+    onReady(canvas)
   }, [onReady])
 
   return (

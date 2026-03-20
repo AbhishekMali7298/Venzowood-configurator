@@ -27,7 +27,7 @@ export function useCompositor(width: number, height: number) {
   const [isRendering, setIsRendering] = useState(false)
 
   const attachCanvas = useCallback((node: HTMLCanvasElement) => {
-    setCanvas(node)
+    setCanvas((current) => (current === node ? current : node))
   }, [])
 
   useEffect(() => {

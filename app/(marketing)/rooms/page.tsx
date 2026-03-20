@@ -12,7 +12,7 @@ export const metadata = {
 export default async function RoomsPage() {
   const [roomsResponse, decorResponse] = await Promise.all([
     getRooms(),
-    getDecors({ country: 'IN', page: 1, limit: 500 }),
+    getDecors({ country: 'IN', page: 1, limit: 100 }),
   ])
 
   return <RoomBrowserClient rooms={roomsResponse.rooms} initialDecors={decorResponse.decors} />

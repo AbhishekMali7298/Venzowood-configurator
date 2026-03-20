@@ -40,7 +40,7 @@ export default async function RoomPage({ params, searchParams }: RoomPageProps) 
   try {
     const [room, decors] = await Promise.all([
       getRoom(params.roomId),
-      getDecors({ country: 'IN', page: 1, limit: 500 }),
+      getDecors({ country: 'IN', page: 1, limit: 100 }),
     ])
     roomData = { room, decors }
   } catch {
