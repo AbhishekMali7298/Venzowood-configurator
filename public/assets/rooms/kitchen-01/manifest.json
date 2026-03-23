@@ -6,7 +6,7 @@
   "height": 1080,
   "layers": {
     "base": "/assets/rooms/kitchen-01/base.png",
-    "shadow": "/assets/rooms/kitchen-01/shadow.png"
+    "shadow": "/assets/rooms/kitchen-01/shadow-soft.svg"
   },
   "sections": [
     {

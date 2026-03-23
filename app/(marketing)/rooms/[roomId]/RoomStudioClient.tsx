@@ -378,6 +378,14 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
           onSelect={handleHotspotSelect}
         />
 
+        {activeSectionConfig?.uvMask ? (
+          <img
+            src={activeSectionConfig.uvMask}
+            alt={`${activeSectionConfig.label} mask preview`}
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-25 mix-blend-screen"
+          />
+        ) : null}
+
         {showCanvasLoading ? (
           <div className="absolute inset-0 flex items-center justify-center bg-stone-200/60 backdrop-blur-[1px]">
             <Spinner />
