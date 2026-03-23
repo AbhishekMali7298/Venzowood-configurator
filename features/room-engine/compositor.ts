@@ -56,14 +56,10 @@ export class RoomCompositor {
       await this.drawLayer(piece.src, 'source-over')
     }
 
-    ctx.globalCompositeOperation = 'multiply'
-    await this.drawLayer(room.layers.shadow)
-    ctx.globalCompositeOperation = 'source-over'
+    await this.drawLayer(room.layers.shadow, 'multiply')
 
     if (room.layers.reflection) {
-      ctx.globalCompositeOperation = 'screen'
-      await this.drawLayer(room.layers.reflection)
-      ctx.globalCompositeOperation = 'source-over'
+      await this.drawLayer(room.layers.reflection, 'screen')
     }
   }
 
@@ -182,7 +178,7 @@ export class RoomCompositor {
 
       const imageElement = await new Promise<HTMLImageElement>((resolve, reject) => {
         const fallbackSrc =
-          'data:image/svg+xml;charset=utf-8,%3Csvg xmlns="http://www.w3.org/2000/svg" width="128" height="128"%3E%3Crect width="100%25" height="100%25" fill="%23e5e5e5" /%3E%3Ccircle cx="64" cy="64" r="16" fill="%23999" /%3E%3C/svg%3E'
+          'data:image/svg+xml;charset=utf-8,%3Csvg xmlns="http://www.w3.org/2000/svg" width="128" height="128"%3E%3Crect width="100%25" height="100%25" fill="none" /%3E%3Ccircle cx="64" cy="64" r="16" fill="rgba(255,0,0,0.5)" /%3E%3C/svg%3E'
         const image = new Image()
         image.decoding = 'async'
         image.crossOrigin = 'anonymous'
