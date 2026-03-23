@@ -145,7 +145,12 @@ describe('RoomCompositor', () => {
 
     const loadImageSpy = vi
       .spyOn(
-        compositor as unknown as { loadImage: (url: string) => Promise<CanvasImageSource> },
+        compositor as unknown as {
+          loadImage: (
+            url: string,
+            options?: { allowFallback?: boolean },
+          ) => Promise<CanvasImageSource>
+        },
         'loadImage',
       )
       .mockImplementation(async (url: string) => ({ url }) as unknown as CanvasImageSource)
@@ -163,7 +168,7 @@ describe('RoomCompositor', () => {
     expect(surface).toBeDefined()
     expect(surface?.context.operations).toContain('gco:destination-in')
 
-    expect(loadImageSpy).toHaveBeenCalledWith('uv-mask.webp')
+    expect(loadImageSpy).toHaveBeenCalledWith('uv-mask.webp', { allowFallback: false })
     expect(loadImageSpy).toHaveBeenCalledWith('tile-512.webp')
 
     expect(mainCtx.operations).toContain('gco:multiply')
@@ -185,7 +190,12 @@ describe('RoomCompositor', () => {
 
     const loadImageSpy = vi
       .spyOn(
-        compositor as unknown as { loadImage: (url: string) => Promise<CanvasImageSource> },
+        compositor as unknown as {
+          loadImage: (
+            url: string,
+            options?: { allowFallback?: boolean },
+          ) => Promise<CanvasImageSource>
+        },
         'loadImage',
       )
       .mockImplementation(async (url: string) => ({ url }) as unknown as CanvasImageSource)

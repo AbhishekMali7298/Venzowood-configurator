@@ -99,10 +99,8 @@ export class RoomCompositor {
       }
     }
 
-    const [mask, tile] = await Promise.all([
-      this.loadImage(section.uvMask),
-      this.loadImage(tileUrl),
-    ])
+    const tile = await this.loadImage(tileUrl)
+    const mask = await this.loadMaskOrFallback(section)
 
     const surface = this.createCompositingSurface()
     const surfaceCtx = surface.getContext('2d') as
@@ -132,6 +130,20 @@ export class RoomCompositor {
     this.ctx.drawImage(surface as CanvasImageSource, 0, 0)
   }
 
+  private async loadMaskOrFallback(
+    section: RoomSection,
+  ): Promise<HTMLImageElement | ImageBitmap | OffscreenCanvas | HTMLCanvasElement> {
+    try {
+      return await this.loadImage(section.uvMask, { allowFallback: false })
+    } catch (error) {
+      console.warn(
+        `UV mask failed for section "${section.id}" (${section.uvMask}). Falling back to hotspot mask.`,
+        error,
+      )
+      return this.createHotspotFallbackMask(section.hotspot.nx, section.hotspot.ny)
+    }
+  }
+
   private async drawLayer(
     url: string,
     blendMode: GlobalCompositeOperation = 'source-over',
@@ -142,7 +154,12 @@ export class RoomCompositor {
     this.ctx.globalCompositeOperation = 'source-over'
   }
 
-  private async loadImage(url: string): Promise<HTMLImageElement | ImageBitmap> {
+  private async loadImage(
+    url: string,
+    options?: { allowFallback?: boolean },
+  ): Promise<HTMLImageElement | ImageBitmap> {
+    const allowFallback = options?.allowFallback ?? true
+
     if (this.imageCache.has(url)) {
       return this.imageCache.get(url) as HTMLImageElement | ImageBitmap
     }
@@ -158,12 +175,13 @@ export class RoomCompositor {
       this.imageCache.set(url, bitmap)
       return bitmap
     } catch (bitmapError) {
-      if (typeof Image === 'undefined') {
+      if (!allowFallback || typeof Image === 'undefined') {
         throw bitmapError
       }
 
       const imageElement = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const fallbackSrc = 'data:image/svg+xml;charset=utf-8,%3Csvg xmlns="http://www.w3.org/2000/svg" width="128" height="128"%3E%3Crect width="100%25" height="100%25" fill="%23e5e5e5" /%3E%3Ccrcle cx="64" cy="64" r="16" fill="%23999" /%3E%3C/svg%3E'
+        const fallbackSrc =
+          'data:image/svg+xml;charset=utf-8,%3Csvg xmlns="http://www.w3.org/2000/svg" width="128" height="128"%3E%3Crect width="100%25" height="100%25" fill="%23e5e5e5" /%3E%3Ccircle cx="64" cy="64" r="16" fill="%23999" /%3E%3C/svg%3E'
         const image = new Image()
         image.decoding = 'async'
         image.crossOrigin = 'anonymous'
@@ -181,6 +199,33 @@ export class RoomCompositor {
       this.imageCache.set(url, imageElement)
       return imageElement
     }
+  }
+
+  private createHotspotFallbackMask(nx: number, ny: number): OffscreenCanvas | HTMLCanvasElement {
+    const surface = this.createCompositingSurface()
+    const ctx = surface.getContext('2d') as
+      | CanvasRenderingContext2D
+      | OffscreenCanvasRenderingContext2D
+      | null
+
+    if (!ctx) {
+      return surface
+    }
+
+    const cx = Math.round(nx * this.width)
+    const cy = Math.round(ny * this.height)
+    const radius = Math.max(48, Math.round(Math.min(this.width, this.height) * 0.1))
+    const gradient = ctx.createRadialGradient(cx, cy, radius * 0.25, cx, cy, radius)
+    gradient.addColorStop(0, 'rgba(255,255,255,1)')
+    gradient.addColorStop(1, 'rgba(255,255,255,0)')
+
+    ctx.clearRect(0, 0, this.width, this.height)
+    ctx.fillStyle = gradient
+    ctx.beginPath()
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2)
+    ctx.fill()
+
+    return surface
   }
 
   private createCompositingSurface(): OffscreenCanvas | HTMLCanvasElement {

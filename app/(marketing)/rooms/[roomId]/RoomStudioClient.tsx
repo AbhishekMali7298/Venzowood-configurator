@@ -11,6 +11,7 @@ import { Spinner } from '@/components/ui/Spinner'
 import { StudioStatus } from '@/components/room/StudioStatus'
 import { StudioToolbar } from '@/components/room/StudioToolbar'
 import type { Decor } from '@/features/decor/types'
+import { buildEggerRenderUrl } from '@/features/room-engine/egger-proxy'
 import { applyPlaceholderAssets } from '@/features/room-engine/placeholders'
 import type { Room } from '@/features/room-engine/types'
 import { useCompareMode } from '@/hooks/useCompareMode'
@@ -26,7 +27,11 @@ interface RoomStudioClientProps {
 }
 
 function shouldUsePlaceholders(): boolean {
-  return process.env.NEXT_PUBLIC_USE_PLACEHOLDERS !== 'false'
+  return process.env.NEXT_PUBLIC_USE_PLACEHOLDERS === 'true'
+}
+
+function shouldUseEggerProxy(): boolean {
+  return process.env.NEXT_PUBLIC_USE_EGGER_PROXY === 'true'
 }
 
 export function RoomStudioClient({ room, decors, projectFromQuery = null }: RoomStudioClientProps) {
@@ -280,6 +285,12 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
   const canResetSection = Boolean(activeSection && sectionDecors.has(activeSection))
   const hasSelections = sectionDecors.size > 0
 
+  const useEggerProxy = shouldUseEggerProxy()
+  const eggerRenderUrl = useMemo(() => {
+    if (!useEggerProxy) return null
+    return buildEggerRenderUrl(enrichedRoom.id, sectionDecors, enrichedRoom.width, enrichedRoom.height)
+  }, [enrichedRoom.id, enrichedRoom.height, enrichedRoom.width, sectionDecors, useEggerProxy])
+
   return (
     <main className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
       <div className="mb-4">
@@ -316,6 +327,16 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
           height={enrichedRoom.height}
           onReady={handlePrimaryCanvasReady}
         />
+
+        {useEggerProxy && eggerRenderUrl && hasSelections ? (
+          <img
+            src={eggerRenderUrl}
+            alt="Egger Proxy Render"
+            className="absolute inset-0 h-full w-full object-cover"
+            // To ensure smooth transitions, EGGER's WASM engine double-buffers this.
+            // We'll trust the browser's aggressive image caching for the basic proxy.
+          />
+        ) : null}
 
         {compareMode.isActive ? (
           <div

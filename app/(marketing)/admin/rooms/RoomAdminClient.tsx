@@ -4,7 +4,7 @@ import type { FormEvent } from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { uploadRoomAsset } from '@/services/admin-api'
-import { createRoom, deleteRoom, getRooms, updateRoom } from '@/services/room-api'
+import { createRoom, deleteRoom, getRoom, getRooms, updateRoom } from '@/services/room-api'
 
 type RoomCategory = 'private' | 'public'
 
@@ -20,10 +20,11 @@ interface FileFieldProps {
   label: string
   required?: boolean
   currentUrl?: string
+  hint?: string
   onChange: (file: File | null) => void
 }
 
-function FileField({ label, required = false, currentUrl, onChange }: FileFieldProps) {
+function FileField({ label, required = false, currentUrl, hint, onChange }: FileFieldProps) {
   return (
     <label className="block">
       <span className="mb-1 block text-sm font-medium text-stone-800">
@@ -33,6 +34,7 @@ function FileField({ label, required = false, currentUrl, onChange }: FileFieldP
       {currentUrl ? (
         <p className="mb-1 truncate text-xs text-stone-500">Current: {currentUrl}</p>
       ) : null}
+      {hint ? <p className="mb-1 text-xs text-stone-500">{hint}</p> : null}
       <input
         type="file"
         accept="image/*"
@@ -67,12 +69,27 @@ export function RoomAdminClient() {
   const [wallMaskFile, setWallMaskFile] = useState<File | null>(null)
   const [floorMaskFile, setFloorMaskFile] = useState<File | null>(null)
   const [countertopMaskFile, setCountertopMaskFile] = useState<File | null>(null)
+  const [wallHotspotNx, setWallHotspotNx] = useState('0.42')
+  const [wallHotspotNy, setWallHotspotNy] = useState('0.30')
+  const [floorHotspotNx, setFloorHotspotNx] = useState('0.50')
+  const [floorHotspotNy, setFloorHotspotNy] = useState('0.78')
+  const [countertopHotspotNx, setCountertopHotspotNx] = useState('0.66')
+  const [countertopHotspotNy, setCountertopHotspotNy] = useState('0.56')
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [status, setStatus] = useState<{ type: 'idle' | 'error' | 'success'; message: string }>({
     type: 'idle',
     message: '',
   })
+
+  const parseNormalized = (value: string, label: string): number => {
+    const parsed = Number(value)
+    if (Number.isNaN(parsed) || parsed < 0 || parsed > 1) {
+      throw new Error(`${label} must be a number between 0 and 1.`)
+    }
+
+    return Number(parsed.toFixed(4))
+  }
 
   // ── Load rooms ─────────────────────────────────────────────────────────────
   const loadRooms = useCallback(async () => {
@@ -98,7 +115,7 @@ export function RoomAdminClient() {
   }, [loadRooms])
 
   // ── Select room to edit ────────────────────────────────────────────────────
-  const handleEdit = (row: RoomRow) => {
+  const handleEdit = async (row: RoomRow) => {
     setEditId(row.id)
     setRoomId(row.id)
     setName(row.name)
@@ -111,6 +128,37 @@ export function RoomAdminClient() {
     setFloorMaskFile(null)
     setCountertopMaskFile(null)
     setStatus({ type: 'idle', message: '' })
+
+    try {
+      const room = await getRoom(row.id)
+      setWidth(String(room.width))
+      setHeight(String(room.height))
+      setAvailableInDE(Boolean(room.availability?.DE))
+
+      const wall = room.sections.find((section) => section.id === 'wall-main')
+      const floor = room.sections.find((section) => section.id === 'floor')
+      const countertop = room.sections.find((section) => section.id === 'countertop')
+
+      if (wall) {
+        setWallHotspotNx(String(wall.hotspot.nx))
+        setWallHotspotNy(String(wall.hotspot.ny))
+      }
+
+      if (floor) {
+        setFloorHotspotNx(String(floor.hotspot.nx))
+        setFloorHotspotNy(String(floor.hotspot.ny))
+      }
+
+      if (countertop) {
+        setCountertopHotspotNx(String(countertop.hotspot.nx))
+        setCountertopHotspotNy(String(countertop.hotspot.ny))
+      }
+    } catch (error) {
+      setStatus({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Failed to load room details for editing',
+      })
+    }
   }
 
   const handleNewMode = () => {
@@ -128,6 +176,12 @@ export function RoomAdminClient() {
     setWallMaskFile(null)
     setFloorMaskFile(null)
     setCountertopMaskFile(null)
+    setWallHotspotNx('0.42')
+    setWallHotspotNy('0.30')
+    setFloorHotspotNx('0.50')
+    setFloorHotspotNy('0.78')
+    setCountertopHotspotNx('0.66')
+    setCountertopHotspotNy('0.56')
     setStatus({ type: 'idle', message: '' })
   }
 
@@ -181,6 +235,15 @@ export function RoomAdminClient() {
     id: string,
     sectionId?: string,
   ): Promise<string> => {
+    if (
+      assetType === 'uvMask' &&
+      file &&
+      file.type !== 'image/webp' &&
+      !file.name.toLowerCase().endsWith('.webp')
+    ) {
+      throw new Error('UV masks must be transparent .webp files (lossless).')
+    }
+
     if (file) {
       const result = await uploadRoomAsset({ roomId: id, assetType, file, sectionId })
       return result.url
@@ -202,6 +265,12 @@ export function RoomAdminClient() {
       setIsSubmitting(true)
 
       const normalizedRoomId = roomId.trim().toLowerCase()
+      const wallNx = parseNormalized(wallHotspotNx, 'Wall hotspot X')
+      const wallNy = parseNormalized(wallHotspotNy, 'Wall hotspot Y')
+      const floorNx = parseNormalized(floorHotspotNx, 'Floor hotspot X')
+      const floorNy = parseNormalized(floorHotspotNy, 'Floor hotspot Y')
+      const countertopNx = parseNormalized(countertopHotspotNx, 'Countertop hotspot X')
+      const countertopNy = parseNormalized(countertopHotspotNy, 'Countertop hotspot Y')
 
       // For create, upload everything. For edit, keep existing URL if no new file.
       const [thumb, base, shadow, wallMask, floorMask, countertopMask] = await Promise.all([
@@ -234,7 +303,7 @@ export function RoomAdminClient() {
             id: 'wall-main',
             label: 'Main wall',
             surfaceType: 'wall' as const,
-            hotspot: { nx: 0.42, ny: 0.3 },
+            hotspot: { nx: wallNx, ny: wallNy },
             uvMask: wallMask,
             tileScale: 0.08,
             defaultDecorCode: 'H1145_ST10',
@@ -245,7 +314,7 @@ export function RoomAdminClient() {
             id: 'floor',
             label: 'Floor',
             surfaceType: 'floor' as const,
-            hotspot: { nx: 0.5, ny: 0.78 },
+            hotspot: { nx: floorNx, ny: floorNy },
             uvMask: floorMask,
             tileScale: 0.06,
             defaultDecorCode: 'H3309_ST28',
@@ -256,7 +325,7 @@ export function RoomAdminClient() {
             id: 'countertop',
             label: 'Countertop',
             surfaceType: 'countertop' as const,
-            hotspot: { nx: 0.66, ny: 0.56 },
+            hotspot: { nx: countertopNx, ny: countertopNy },
             uvMask: countertopMask,
             tileScale: 0.09,
             defaultDecorCode: 'F274_ST9',
@@ -357,7 +426,7 @@ export function RoomAdminClient() {
                       <div className="flex gap-1">
                         <button
                           type="button"
-                          onClick={() => handleEdit(room)}
+                          onClick={() => void handleEdit(room)}
                           className="rounded border border-stone-300 px-2 py-1 text-xs text-stone-700 hover:border-stone-600"
                         >
                           Edit
@@ -460,14 +529,112 @@ export function RoomAdminClient() {
             </label>
           </section>
 
+          <section className="rounded-lg border border-stone-200 p-4">
+            <h3 className="text-sm font-semibold text-stone-800">Hotspots (normalized 0-1)</h3>
+            <p className="mt-1 text-xs text-stone-500">
+              Adjust these to align each clickable dot with the exact object in the room image.
+            </p>
+            <div className="mt-3 grid gap-3 md:grid-cols-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-stone-700">Wall X</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.001}
+                  value={wallHotspotNx}
+                  onChange={(event) => setWallHotspotNx(event.target.value)}
+                  className="w-full rounded border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-700"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-stone-700">Wall Y</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.001}
+                  value={wallHotspotNy}
+                  onChange={(event) => setWallHotspotNy(event.target.value)}
+                  className="w-full rounded border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-700"
+                />
+              </label>
+              <div />
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-stone-700">Floor X</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.001}
+                  value={floorHotspotNx}
+                  onChange={(event) => setFloorHotspotNx(event.target.value)}
+                  className="w-full rounded border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-700"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-stone-700">Floor Y</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.001}
+                  value={floorHotspotNy}
+                  onChange={(event) => setFloorHotspotNy(event.target.value)}
+                  className="w-full rounded border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-700"
+                />
+              </label>
+              <div />
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-stone-700">Countertop X</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.001}
+                  value={countertopHotspotNx}
+                  onChange={(event) => setCountertopHotspotNx(event.target.value)}
+                  className="w-full rounded border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-700"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-stone-700">Countertop Y</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={1}
+                  step={0.001}
+                  value={countertopHotspotNy}
+                  onChange={(event) => setCountertopHotspotNy(event.target.value)}
+                  className="w-full rounded border border-stone-300 px-3 py-2 text-sm outline-none focus:border-stone-700"
+                />
+              </label>
+            </div>
+          </section>
+
           <section className="grid gap-4 md:grid-cols-2">
             <FileField label="Thumbnail" required={isCreate} currentUrl={currentRow?.thumb} onChange={setThumbFile} />
             <FileField label="Base layer" required={isCreate} onChange={setBaseFile} />
             <FileField label="Shadow layer" required={isCreate} onChange={setShadowFile} />
             <FileField label="Reflection layer (optional)" onChange={setReflectionFile} />
-            <FileField label="UV mask: wall-main" required={isCreate} onChange={setWallMaskFile} />
-            <FileField label="UV mask: floor" required={isCreate} onChange={setFloorMaskFile} />
-            <FileField label="UV mask: countertop" required={isCreate} onChange={setCountertopMaskFile} />
+            <FileField
+              label="UV mask: wall-main"
+              required={isCreate}
+              hint="Use transparent WebP (lossless), white where decor should be applied."
+              onChange={setWallMaskFile}
+            />
+            <FileField
+              label="UV mask: floor"
+              required={isCreate}
+              hint="Use transparent WebP (lossless), white where decor should be applied."
+              onChange={setFloorMaskFile}
+            />
+            <FileField
+              label="UV mask: countertop"
+              required={isCreate}
+              hint="Use transparent WebP (lossless), white where decor should be applied."
+              onChange={setCountertopMaskFile}
+            />
           </section>
 
           {status.type !== 'idle' ? (

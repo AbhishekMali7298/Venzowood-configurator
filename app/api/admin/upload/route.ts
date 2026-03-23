@@ -72,7 +72,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Missing file' }, { status: 400 })
     }
 
-    const extension = normalizeExtension(rawFile.name)
+    if (
+      payload.assetType === 'uvMask' &&
+      rawFile.type !== 'image/webp' &&
+      !rawFile.name.toLowerCase().endsWith('.webp')
+    ) {
+      return NextResponse.json(
+        { message: 'UV masks must be uploaded as transparent .webp files (lossless).' },
+        { status: 400 },
+      )
+    }
+
+    const extension =
+      payload.assetType === 'uvMask' ? 'webp' : normalizeExtension(rawFile.name)
     const relativePath = resolveRelativePath({
       roomId: payload.roomId,
       assetType: payload.assetType,
