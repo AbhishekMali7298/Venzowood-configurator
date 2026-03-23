@@ -1,4 +1,3 @@
-import Image from 'next/image'
 import { useState } from 'react'
 
 import type { Decor } from '@/features/decor/types'
@@ -13,6 +12,7 @@ interface DecorCardProps {
 
 export function DecorCard({ decor, active, onSelect, onHover, variant = 'compact' }: DecorCardProps) {
   const [isFavourite, setIsFavourite] = useState(false)
+  const [thumbSrc, setThumbSrc] = useState(decor.thumb)
   const panel = variant === 'panel'
 
   const handleFavourite = (e: React.MouseEvent) => {
@@ -42,13 +42,18 @@ export function DecorCard({ decor, active, onSelect, onHover, variant = 'compact
           panel ? 'aspect-[4/3] border-x-0 border-t-0' : 'mb-2 rounded-md'
         }`}
       >
-        <Image
-          src={decor.thumb}
+        <img
+          src={thumbSrc}
           alt={decor.name}
           className={`w-full object-cover ${panel ? 'h-full' : 'h-14'}`}
-          width={panel ? 640 : 112}
-          height={panel ? 480 : 56}
           loading="lazy"
+          decoding="async"
+          onError={() => {
+            const fallback = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
+              `<svg xmlns='http://www.w3.org/2000/svg' width='640' height='480' viewBox='0 0 640 480'><rect width='100%' height='100%' fill='#8a7051'/><path d='M0 0 L640 640 M-160 160 L480 800 M160 -160 L800 480' stroke='#5c4933' stroke-width='42' opacity='0.35'/></svg>`,
+            )}`
+            setThumbSrc(fallback)
+          }}
         />
 
         {/* Top-left "Applied" badge */}
@@ -99,4 +104,3 @@ export function DecorCard({ decor, active, onSelect, onHover, variant = 'compact
     </button>
   )
 }
-

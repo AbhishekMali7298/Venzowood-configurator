@@ -125,7 +125,8 @@ export class RoomCompositor {
     surfaceCtx.fillRect(0, 0, this.width, this.height)
 
     surfaceCtx.globalCompositeOperation = 'destination-in'
-    surfaceCtx.drawImage(mask as CanvasImageSource, 0, 0, this.width, this.height)
+    const alphaMask = this.normalizeMaskToAlpha(mask as CanvasImageSource)
+    surfaceCtx.drawImage(alphaMask as CanvasImageSource, 0, 0, this.width, this.height)
 
     this.ctx.drawImage(surface as CanvasImageSource, 0, 0)
   }
@@ -225,6 +226,47 @@ export class RoomCompositor {
     ctx.arc(cx, cy, radius, 0, Math.PI * 2)
     ctx.fill()
 
+    return surface
+  }
+
+  private normalizeMaskToAlpha(mask: CanvasImageSource): CanvasImageSource {
+    const surface = this.createCompositingSurface()
+    const ctx = surface.getContext('2d') as
+      | CanvasRenderingContext2D
+      | OffscreenCanvasRenderingContext2D
+      | null
+
+    if (!ctx) {
+      return mask
+    }
+
+    ctx.clearRect(0, 0, this.width, this.height)
+    ctx.drawImage(mask, 0, 0, this.width, this.height)
+
+    if (typeof ctx.getImageData !== 'function' || typeof ctx.putImageData !== 'function') {
+      return mask
+    }
+
+    // Support both transparent masks and black/white opaque masks:
+    // convert luminance into alpha so white keeps decor and black removes it.
+    const imageData = ctx.getImageData(0, 0, this.width, this.height)
+    const { data } = imageData
+
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i] ?? 0
+      const g = data[i + 1] ?? 0
+      const b = data[i + 2] ?? 0
+      const srcAlpha = (data[i + 3] ?? 0) / 255
+      const luminance = Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b)
+      const alpha = Math.round(luminance * srcAlpha)
+
+      data[i] = 255
+      data[i + 1] = 255
+      data[i + 2] = 255
+      data[i + 3] = alpha
+    }
+
+    ctx.putImageData(imageData, 0, 0)
     return surface
   }
 

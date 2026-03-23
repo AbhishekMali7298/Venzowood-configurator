@@ -10,6 +10,7 @@ import type { RoomListItem } from '@/features/room-engine/types'
 interface RoomBrowserClientProps {
   rooms: RoomListItem[]
   initialDecors: Decor[]
+  backendUnavailable?: boolean
 }
 
 function toSvgDataUrl(svg: string): string {
@@ -67,7 +68,11 @@ function RoomThumbnail({ src, alt }: { src: string; alt: string }) {
   )
 }
 
-export function RoomBrowserClient({ rooms, initialDecors }: RoomBrowserClientProps) {
+export function RoomBrowserClient({
+  rooms,
+  initialDecors,
+  backendUnavailable = false,
+}: RoomBrowserClientProps) {
   const [category, setCategory] = useState<'all' | 'private' | 'public'>('all')
   const [roomTag, setRoomTag] = useState<string>('all')
 
@@ -91,6 +96,13 @@ export function RoomBrowserClient({ rooms, initialDecors }: RoomBrowserClientPro
   return (
     <main className="min-h-screen bg-stone-100">
       <div className="mx-auto max-w-[1380px] px-4 pb-10 pt-8 md:px-8">
+        {backendUnavailable ? (
+          <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Backend API is not reachable. Start backend with `cd backend && npm run dev` (port 8080),
+            then refresh this page.
+          </div>
+        ) : null}
+
         <div className="mb-6 flex items-end justify-between border-b border-stone-300 pb-3">
           <h1 className="text-4xl font-light tracking-tight text-stone-900">Rooms</h1>
           <p className="hidden text-xl font-light text-stone-800 md:block">Choose your room</p>

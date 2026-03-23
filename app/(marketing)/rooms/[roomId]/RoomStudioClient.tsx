@@ -34,6 +34,15 @@ function shouldUseEggerProxy(): boolean {
   return process.env.NEXT_PUBLIC_USE_EGGER_PROXY === 'true'
 }
 
+function isKnownUnreachableDevCdn(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    return parsed.hostname === 'cdn.decorviz.com'
+  } catch {
+    return false
+  }
+}
+
 export function RoomStudioClient({ room, decors, projectFromQuery = null }: RoomStudioClientProps) {
   const initializedRef = useRef(false)
   const compareInitializedRef = useRef(false)
@@ -42,13 +51,22 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
 
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
+  const shouldAutoFallback = useMemo(() => {
+    const roomHasCdnAssets =
+      isKnownUnreachableDevCdn(room.layers.base) ||
+      isKnownUnreachableDevCdn(room.layers.shadow) ||
+      Boolean(room.layers.reflection && isKnownUnreachableDevCdn(room.layers.reflection)) ||
+      room.sections.some((section) => isKnownUnreachableDevCdn(section.uvMask))
+    return roomHasCdnAssets
+  }, [room.layers.base, room.layers.reflection, room.layers.shadow, room.sections])
+
   const source = useMemo(() => {
-    if (!shouldUsePlaceholders()) {
+    if (!shouldUsePlaceholders() && !shouldAutoFallback) {
       return { room, decors }
     }
 
     return applyPlaceholderAssets(room, decors)
-  }, [decors, room])
+  }, [decors, room, shouldAutoFallback])
 
   const decorByCode = useMemo(
     () => new Map(source.decors.map((decor) => [decor.code, decor])),

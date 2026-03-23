@@ -1,0 +1,23 @@
+{
+  "id": "kitchen-01",
+  "name": "Modern Kitchen",
+  "category": "private",
+  "width": 1920,
+  "height": 1080,
+  "layers": {
+    "base": "/assets/rooms/kitchen-01/base.png",
+    "shadow": "/assets/rooms/kitchen-01/shadow.png"
+  },
+  "sections": [
+    {
+      "id": "cabinets",
+      "label": "Cabinet Fronts",
+      "surfaceType": "cabinet",
+      "hotspot": { "nx": 0.25, "ny": 0.65 },
+      "uvMask": "/assets/rooms/kitchen-01/uv-mask-cabinate_w.png",
+      "tileScale": 0.08,
+      "defaultDecorCode": "WOOD-001",
+      "renderOrder": 1
+    }
+  ]
+}
