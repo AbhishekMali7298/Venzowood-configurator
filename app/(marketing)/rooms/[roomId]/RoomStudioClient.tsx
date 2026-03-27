@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DecorDrawer } from '@/components/decor/DecorDrawer'
 import { ComparisonSlider } from '@/components/room/ComparisonSlider'
 import { HotspotOverlay } from '@/components/room/HotspotOverlay'
-import { RoomCanvas } from '@/components/room/RoomCanvas'
+import { RoomViewer } from '@/components/room/RoomViewer'
 import { SectionLabel } from '@/components/room/SectionLabel'
 import { Spinner } from '@/components/ui/Spinner'
 import { StudioStatus } from '@/components/room/StudioStatus'
@@ -15,10 +15,8 @@ import { buildEggerRenderUrl } from '@/features/room-engine/egger-proxy'
 import { applyPlaceholderAssets } from '@/features/room-engine/placeholders'
 import type { Room } from '@/features/room-engine/types'
 import { useCompareMode } from '@/hooks/useCompareMode'
-import { useCompositor } from '@/hooks/useCompositor'
 import { useProjectPersist } from '@/hooks/useProjectPersist'
 import { useStore } from '@/store'
-import { downloadCanvasAsPng } from '@/utils/image'
 
 interface RoomStudioClientProps {
   room: Room
@@ -44,10 +42,7 @@ function isKnownUnreachableDevCdn(url: string): boolean {
 }
 
 export function RoomStudioClient({ room, decors, projectFromQuery = null }: RoomStudioClientProps) {
-  const initializedRef = useRef(false)
-  const compareInitializedRef = useRef(false)
   const loadedProjectRef = useRef<string | null>(null)
-  const primaryCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
@@ -118,22 +113,6 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
   const setProjectId = useStore((state) => state.setProjectId)
   const markSaved = useStore((state) => state.markSaved)
 
-  const {
-    attachCanvas: attachPrimaryCanvas,
-    isReady: isPrimaryReady,
-    isRendering: isPrimaryRendering,
-    initRoom: initPrimaryRoom,
-    render: renderPrimary,
-    renderProgressive: renderPrimaryProgressive,
-  } = useCompositor(enrichedRoom.width, enrichedRoom.height)
-  const {
-    attachCanvas: attachCompareCanvas,
-    isReady: isCompareReady,
-    isRendering: isCompareRendering,
-    initRoom: initCompareRoom,
-    render: renderCompare,
-  } = useCompositor(enrichedRoom.width, enrichedRoom.height)
-
   const compareMode = useCompareMode()
 
   const { saveCurrentProject, loadProjectById } = useProjectPersist({
@@ -146,65 +125,18 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
     country: 'IN',
   })
 
-  const handlePrimaryCanvasReady = useCallback(
-    (canvas: HTMLCanvasElement) => {
-      primaryCanvasRef.current = canvas
-      attachPrimaryCanvas(canvas)
-    },
-    [attachPrimaryCanvas],
-  )
-
-  const handleCompareCanvasReady = useCallback(
-    (canvas: HTMLCanvasElement) => {
-      attachCompareCanvas(canvas)
-    },
-    [attachCompareCanvas],
-  )
+  const activeRoomInStore = useStore((state) => state.activeRoom)
 
   useEffect(() => {
+    // If we're entering a different room than the one stored in the session,
+    // clear the previous room's selections to avoid visual glitches.
+    if (activeRoomInStore && activeRoomInStore.id !== enrichedRoom.id) {
+      resetAll()
+    }
+    
     setRoom(enrichedRoom)
     setCatalogue(source.decors)
-  }, [enrichedRoom, setCatalogue, setRoom, source.decors])
-
-  useEffect(() => {
-    if (!isPrimaryReady) {
-      return
-    }
-
-    if (!initializedRef.current) {
-      initializedRef.current = true
-      void initPrimaryRoom(enrichedRoom, sectionDecors)
-      return
-    }
-
-    void renderPrimary(enrichedRoom, sectionDecors, 'low')
-  }, [enrichedRoom, initPrimaryRoom, isPrimaryReady, renderPrimary, sectionDecors])
-
-  useEffect(() => {
-    if (!compareMode.isActive) {
-      compareInitializedRef.current = false
-      return
-    }
-
-    if (!isCompareReady) {
-      return
-    }
-
-    if (!compareInitializedRef.current) {
-      compareInitializedRef.current = true
-      void initCompareRoom(enrichedRoom, compareMode.baselineDecors)
-      return
-    }
-
-    void renderCompare(enrichedRoom, compareMode.baselineDecors, 'low')
-  }, [
-    compareMode.baselineDecors,
-    compareMode.isActive,
-    enrichedRoom,
-    initCompareRoom,
-    isCompareReady,
-    renderCompare,
-  ])
+  }, [enrichedRoom, setCatalogue, setRoom, source.decors, activeRoomInStore, resetAll])
 
   useEffect(() => {
     if (compareModeInStore !== compareMode.isActive) {
@@ -240,11 +172,9 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
   const handleDecorSelect = useCallback(
     (sectionId: string, decor: Decor) => {
       selectDecor(sectionId, decor)
-      const next = new Map(sectionDecors)
-      next.set(sectionId, decor)
-      void renderPrimaryProgressive(enrichedRoom, next)
+      // Rendering will happen automatically via React state update in RoomViewer
     },
-    [enrichedRoom, renderPrimaryProgressive, sectionDecors, selectDecor],
+    [selectDecor],
   )
 
   const handleToggleCompare = useCallback(() => {
@@ -259,21 +189,15 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
     if (!activeSection || !sectionDecors.has(activeSection)) {
       return
     }
-
-    const next = new Map(sectionDecors)
-    next.delete(activeSection)
     resetSection(activeSection)
-    void renderPrimary(enrichedRoom, next, 'low')
-  }, [activeSection, enrichedRoom, renderPrimary, resetSection, sectionDecors])
+  }, [activeSection, resetSection, sectionDecors])
 
   const handleResetAll = useCallback(() => {
     if (sectionDecors.size === 0) {
       return
     }
-
     resetAll()
-    void renderPrimary(enrichedRoom, new Map(), 'low')
-  }, [enrichedRoom, renderPrimary, resetAll, sectionDecors.size])
+  }, [resetAll, sectionDecors.size])
 
   const handleSaveProject = useCallback(async () => {
     try {
@@ -286,12 +210,9 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
   }, [saveCurrentProject])
 
   const handleExportPng = useCallback(() => {
-    if (!primaryCanvasRef.current) {
-      return
-    }
-
-    downloadCanvasAsPng(primaryCanvasRef.current, `${enrichedRoom.id}-export.png`)
-  }, [enrichedRoom.id])
+    alert('Export is temporarily disabled during DOM migration. Standard Canvas export logic needs updating for DOM layering.')
+    // In a real project, we would use html2canvas or a similar client-side library to capture the layered DOM.
+  }, [])
 
   const activeSectionConfig = useMemo(
     () => enrichedRoom.sections.find((section) => section.id === activeSection) ?? null,
@@ -299,7 +220,6 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
   )
   const activeDecorCode = activeSection ? sectionDecors.get(activeSection)?.code : undefined
   const compareClip = `${Math.round(compareMode.sliderPosition * 100)}%`
-  const showCanvasLoading = !isPrimaryReady || (isPrimaryRendering && !initializedRef.current)
   const canResetSection = Boolean(activeSection && sectionDecors.has(activeSection))
   const hasSelections = sectionDecors.size > 0
 
@@ -331,19 +251,19 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
       </div>
 
       <StudioStatus
-        renderReady={!isPrimaryRendering}
+        renderReady={true}
         compareActive={compareMode.isActive}
-        compareReady={!isCompareRendering}
+        compareReady={true}
         projectId={projectId}
         lastSaved={lastSaved}
         saveState={saveState}
       />
 
       <div className="relative overflow-hidden rounded-xl border border-stone-300 bg-stone-900/5">
-        <RoomCanvas
-          width={enrichedRoom.width}
-          height={enrichedRoom.height}
-          onReady={handlePrimaryCanvasReady}
+        <RoomViewer
+          room={enrichedRoom}
+          sectionDecors={sectionDecors}
+          quality="low"
         />
 
         {useEggerProxy && eggerRenderUrl && hasSelections ? (
@@ -351,8 +271,6 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
             src={eggerRenderUrl}
             alt="Egger Proxy Render"
             className="absolute inset-0 h-full w-full object-cover"
-            // To ensure smooth transitions, EGGER's WASM engine double-buffers this.
-            // We'll trust the browser's aggressive image caching for the basic proxy.
           />
         ) : null}
 
@@ -361,36 +279,24 @@ export function RoomStudioClient({ room, decors, projectFromQuery = null }: Room
             className="pointer-events-none absolute inset-0"
             style={{ clipPath: `inset(0 0 0 ${compareClip})` }}
           >
-            <RoomCanvas
-              width={enrichedRoom.width}
-              height={enrichedRoom.height}
-              onReady={handleCompareCanvasReady}
+            <RoomViewer
+              room={enrichedRoom}
+              sectionDecors={compareMode.baselineDecors}
+              quality="low"
               className="h-full w-full border-0 bg-transparent"
             />
           </div>
         ) : null}
 
-        <HotspotOverlay
-          hotspots={hotspots}
-          canvasWidth={enrichedRoom.width}
-          canvasHeight={enrichedRoom.height}
-          activeSection={activeSection}
-          onSelect={handleHotspotSelect}
-        />
-
-        {activeSectionConfig?.uvMask ? (
-          <img
-            src={activeSectionConfig.uvMask}
-            alt={`${activeSectionConfig.label} mask preview`}
-            className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-25 mix-blend-screen"
+        <div className="absolute inset-0 z-20">
+          <HotspotOverlay
+            hotspots={hotspots}
+            canvasWidth={enrichedRoom.width}
+            canvasHeight={enrichedRoom.height}
+            activeSection={activeSection}
+            onSelect={handleHotspotSelect}
           />
-        ) : null}
-
-        {showCanvasLoading ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-stone-200/60 backdrop-blur-[1px]">
-            <Spinner />
-          </div>
-        ) : null}
+        </div>
       </div>
 
       {compareMode.isActive ? (

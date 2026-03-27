@@ -8,6 +8,7 @@ import { preloadDecorTiles } from '@/features/decor/tile-loader'
 
 import { DecorCard } from './DecorCard'
 import { DecorSearch } from './DecorSearch'
+import { useStore } from '@/store'
 
 const ITEMS_PER_ROW = 2
 const ROW_HEIGHT = 330
@@ -98,10 +99,12 @@ export function DecorDrawer({
   onClose,
 }: DecorDrawerProps) {
   const parentRef = useRef<HTMLDivElement>(null)
-  const [search, setSearch] = useState('')
-  const [selectedGroupId, setSelectedGroupId] = useState<string>(DECOR_GROUPS[0]!.id)
-  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(DECOR_GROUPS[0]!.id)
-  const [selectedSubCategory, setSelectedSubCategory] = useState<string>('all')
+  
+  const search = useStore(state => state.drawerSearch)
+  const selectedGroupId = useStore(state => state.drawerSelectedGroup)
+  const expandedGroupId = useStore(state => state.drawerExpandedGroup)
+  const selectedSubCategory = useStore(state => state.drawerSubCategory)
+  const setDrawerFilters = useStore(state => state.setDrawerFilters)
 
   const compatibleSet = useMemo(() => {
     if (!compatibleCategories || compatibleCategories.length === 0) {
@@ -137,13 +140,20 @@ export function DecorDrawer({
   }, [compatibleDecors])
 
   useEffect(() => {
-    const hasSelectedGroup = subCategoriesByGroup.has(selectedGroupId)
-    if (!hasSelectedGroup) {
-      setSelectedGroupId(DECOR_GROUPS[0]!.id)
-      setExpandedGroupId(DECOR_GROUPS[0]!.id)
-      setSelectedSubCategory('all')
+    // When the component mounts or compatibleDecors changes, 
+    // find the first group that actually has decors and select it.
+    const firstCompatibleGroup = DECOR_GROUPS.find(group => 
+      compatibleDecors.some(decor => resolveGroupId(decor.category) === group.id)
+    )
+
+    if (firstCompatibleGroup && (!selectedGroupId || !subCategoriesByGroup.has(selectedGroupId))) {
+      setDrawerFilters({
+        selectedGroup: firstCompatibleGroup.id,
+        expandedGroup: firstCompatibleGroup.id,
+        subCategory: 'all'
+      })
     }
-  }, [selectedGroupId, subCategoriesByGroup])
+  }, [compatibleDecors, selectedGroupId, subCategoriesByGroup, setDrawerFilters])
 
   const filtered = useMemo(
     () =>
@@ -172,8 +182,10 @@ export function DecorDrawer({
   })
 
   const handleResetFilters = () => {
-    setSearch('')
-    setSelectedSubCategory('all')
+    setDrawerFilters({
+      search: '',
+      subCategory: 'all'
+    })
   }
 
   return (
@@ -195,7 +207,7 @@ export function DecorDrawer({
 
         <div className="grid min-h-0 flex-1 gap-4 p-4 md:grid-cols-[300px,1fr]">
           <section className="min-h-0 overflow-y-auto rounded border border-stone-300 bg-white p-4">
-            <DecorSearch value={search} onChange={setSearch} />
+            <DecorSearch value={search} onChange={(val) => setDrawerFilters({ search: val })} />
 
             <div className="mt-4 space-y-3">
               {DECOR_GROUPS.map((group) => {
@@ -208,9 +220,11 @@ export function DecorDrawer({
                     <button
                       type="button"
                       onClick={() => {
-                        setExpandedGroupId(expanded ? null : group.id)
-                        setSelectedGroupId(group.id)
-                        setSelectedSubCategory('all')
+                        setDrawerFilters({
+                          expandedGroup: expandedGroupId === group.id ? null : group.id,
+                          selectedGroup: group.id,
+                          subCategory: 'all'
+                        })
                       }}
                       className={`flex w-full items-center justify-between text-left text-base ${
                         selected ? 'font-semibold text-stone-900' : 'font-medium text-stone-700'
@@ -228,8 +242,10 @@ export function DecorDrawer({
                             selectedSubCategory === 'all' ? 'font-semibold text-stone-900' : 'text-stone-700'
                           }`}
                           onClick={() => {
-                            setSelectedGroupId(group.id)
-                            setSelectedSubCategory('all')
+                            setDrawerFilters({
+                              selectedGroup: group.id,
+                              subCategory: 'all'
+                            })
                           }}
                         >
                           <span
@@ -252,8 +268,10 @@ export function DecorDrawer({
                                 active ? 'font-semibold text-stone-900' : 'text-stone-700'
                               }`}
                               onClick={() => {
-                                setSelectedGroupId(group.id)
-                                setSelectedSubCategory(category)
+                                setDrawerFilters({
+                                  selectedGroup: group.id,
+                                  subCategory: category
+                                })
                               }}
                             >
                               <span
